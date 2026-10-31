@@ -1,0 +1,152 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-18T12:00:00Z",
+  "title": "Design System: Classight",
+  "extensions": {
+    "colorMeta": {
+      "bg-950": { "role": "neutral", "displayName": "Page White", "canonical": "#ffffff", "tonalRamp": ["#c6cfdb", "#dde3ea", "#e9edf2", "#f0f2f6", "#f7f8fa", "#fbfcfd", "#fdfdfe", "#ffffff"] },
+      "fg-100": { "role": "neutral", "displayName": "Near-Black Ink", "canonical": "#0b1220", "tonalRamp": ["#0b1220", "#1e2837", "#384456", "#566173", "#6b7686", "#8b95a3", "#b4bcc7", "#dde1e7"] },
+      "accent": { "role": "primary", "displayName": "Coral Flare", "canonical": "#ff6a3d", "tonalRamp": ["#1a0903", "#5c2210", "#9a3a1d", "#ec5a2d", "#ff6a3d", "#ff8159", "#ffa588", "#ffd1c2"] },
+      "danger": { "role": "status", "displayName": "Danger", "canonical": "#c42a47", "tonalRamp": ["#3a0f19", "#6b1a2b", "#9a2339", "#c42a47", "#d6334f", "#e2677d", "#eea0ae", "#f8d6dc"] },
+      "success": { "role": "status", "displayName": "Success", "canonical": "#1a7a4f", "tonalRamp": ["#0a2f1e", "#115238", "#1a7a4f", "#1f8a5b", "#4fa882", "#7fc4a4", "#b0dcc8", "#dcf0e6"] }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Console and admin page titles." },
+      "headline": { "displayName": "Headline", "purpose": "Sheet and major headings." },
+      "title": { "displayName": "Title", "purpose": "Dialog and empty-state titles, dock values, home slogan." },
+      "body": { "displayName": "Body", "purpose": "Default text." },
+      "label": { "displayName": "Label", "purpose": "Field labels, table heads, section headings, dock labels." },
+      "caption": { "displayName": "Caption", "purpose": "Hints, errors, badges." }
+    },
+    "shadows": [
+      { "name": "pop", "value": "0 18px 44px -14px rgba(15,23,42,0.22), 0 2px 6px rgba(15,23,42,0.07)", "purpose": "Floating white glass only: sheet, dock, dialogs, toasts." },
+      { "name": "glass-highlight", "value": "inset 0 1px 0 rgba(255,255,255,0.9)", "purpose": "Bright top edge on every glass pane." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Default for all UI transitions." },
+      { "name": "ease-in-out", "value": "cubic-bezier(0.65, 0, 0.35, 1)", "purpose": "Skeleton shimmer and symmetric moves." },
+      { "name": "ease-snap", "value": "cubic-bezier(0.2, 0.9, 0.1, 1)", "purpose": "Quick lock-on moves." },
+      { "name": "dur-fast", "value": "140ms", "purpose": "Hover and press feedback." },
+      { "name": "dur-base", "value": "280ms", "purpose": "Dialogs, toasts, switches, dock cell wash." },
+      { "name": "dur-slow", "value": "640ms", "purpose": "Page entry, hint fades, sheet content rise." },
+      { "name": "spring-follow", "value": "stiffness 130, damping 15", "purpose": "Bracket following pointer." },
+      { "name": "spring-snap", "value": "stiffness 300, damping 27", "purpose": "Bracket locking to target." },
+      { "name": "spring-lean", "value": "stiffness 190, damping 22", "purpose": "Bracket leaning a few px toward the pointer while snapped." },
+      { "name": "spring-progress", "value": "stiffness 78, damping 17.5", "purpose": "Wheel-driven stage progress." },
+      { "name": "spring-commit", "value": "stiffness 64, damping 14", "purpose": "Settle after wheel stops." }
+    ],
+    "breakpoints": [
+      { "name": "narrow", "value": "560px" },
+      { "name": "stage-compact", "value": "720px" },
+      { "name": "stage-short", "value": "640px (max-height; dock hidden)" },
+      { "name": "console", "value": "860px" },
+      { "name": "admin", "value": "900px" },
+      { "name": "wide", "value": "980px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The single coral action per view.",
+      "html": "<button class=\"ds-btn ds-btn-primary\">Start</button>",
+      "css": ".ds-btn{display:inline-flex;align-items:center;justify-content:center;height:40px;padding:0 16px;border:1px solid transparent;border-radius:10px;font:500 15px/1 inherit;transition:background-color 140ms var(--ease-out,cubic-bezier(.16,1,.3,1))}.ds-btn-primary{background:#ff6a3d;color:#1a0903}.ds-btn-primary:hover{background:#ff8159}.ds-btn-primary:active{background:#ec5a2d;transform:translateY(1px)}.ds-btn-primary:focus-visible{outline:2px solid #ff6a3d;outline-offset:3px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Hairline-bordered neutral action.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary{height:40px;padding:0 16px;border:1px solid rgba(11,18,32,.24);border-radius:10px;background:rgba(11,18,32,.04);color:#0b1220;font:500 15px/1 inherit;transition:background-color 140ms,border-color 140ms}.ds-btn-secondary:hover{border-color:#384456;background:rgba(11,18,32,.09)}.ds-btn-secondary:focus-visible{outline:2px solid #0b1220;outline-offset:3px}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Quiet corner action such as login.",
+      "html": "<button class=\"ds-btn-ghost\">Log in</button>",
+      "css": ".ds-btn-ghost{height:40px;padding:0 16px;border:1px solid transparent;border-radius:10px;background:transparent;color:#0b1220;font:500 15px/1 inherit;transition:background-color 140ms}.ds-btn-ghost:hover{background:rgba(11,18,32,.08)}.ds-btn-ghost:focus-visible{outline:2px solid #0b1220;outline-offset:3px}"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Hairline field that darkens to ink on focus.",
+      "html": "<input class=\"ds-input\" placeholder=\"Email\">",
+      "css": ".ds-input{width:240px;min-height:40px;padding:0 12px;border:1px solid rgba(11,18,32,.24);border-radius:10px;background:rgba(11,18,32,.04);color:#0b1220;transition:border-color 140ms}.ds-input::placeholder{color:#6b7686}.ds-input:hover{border-color:#566173}.ds-input:focus{outline:none;border-color:#0b1220;background:rgba(11,18,32,.07)}"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "description": "Pill status tag.",
+      "html": "<span class=\"ds-badge\">Active</span>",
+      "css": ".ds-badge{display:inline-flex;align-items:center;height:22px;padding:0 8px;border:1px solid rgba(11,18,32,.24);border-radius:999px;font-size:12px;color:#384456}"
+    },
+    {
+      "name": "Glass Dialog",
+      "kind": "card",
+      "refersTo": "dialog",
+      "description": "White glass panel, an elevated surface alongside the sheet, dock and toasts.",
+      "html": "<div class=\"ds-glass\"><div class=\"ds-glass-head\">Confirm</div><div class=\"ds-glass-body\">Body copy.</div></div>",
+      "css": ".ds-glass{width:320px;border-radius:18px;border:1px solid rgba(11,18,32,.12);background:rgba(255,255,255,.5);-webkit-backdrop-filter:blur(26px) saturate(1.2);backdrop-filter:blur(26px) saturate(1.2);color:#0b1220;box-shadow:0 18px 44px -14px rgba(15,23,42,.22),0 2px 6px rgba(15,23,42,.07),inset 0 1px 0 rgba(255,255,255,.9);overflow:hidden}.ds-glass-head{padding:16px 24px;border-bottom:1px solid rgba(11,18,32,.1);font-size:18px;font-weight:600}.ds-glass-body{padding:24px;font-size:15px}"
+    },
+    {
+      "name": "Home Dock",
+      "kind": "nav",
+      "refersTo": "dock",
+      "description": "Three-cell white glass pane under the name: class info, classmates, timeline; each cell a snap target and a shortcut into the sheet.",
+      "html": "<nav class=\"ds-dock\"><button class=\"ds-dock-cell\"><span class=\"ds-dock-label\">Class info</span><span class=\"ds-dock-value\">Motto goes here</span></button><button class=\"ds-dock-cell\"><span class=\"ds-dock-label\">Classmates</span><span class=\"ds-dock-value\">42 members</span></button><button class=\"ds-dock-cell\"><span class=\"ds-dock-label\">Timeline</span><span class=\"ds-dock-value\">18 events</span></button></nav>",
+      "css": ".ds-dock{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:560px;border-radius:18px;border:1px solid rgba(11,18,32,.12);background:rgba(255,255,255,.5);-webkit-backdrop-filter:blur(26px) saturate(1.2);backdrop-filter:blur(26px) saturate(1.2);box-shadow:0 18px 44px -14px rgba(15,23,42,.22),0 2px 6px rgba(15,23,42,.07),inset 0 1px 0 rgba(255,255,255,.9)}.ds-dock-cell{display:flex;flex-direction:column;gap:8px;min-height:92px;padding:16px 24px;border:0;background:transparent;text-align:left;color:#0b1220;transition:background-color 280ms cubic-bezier(.16,1,.3,1)}.ds-dock-cell+.ds-dock-cell{border-left:1px solid rgba(11,18,32,.1)}.ds-dock-cell:first-child{border-radius:18px 0 0 18px}.ds-dock-cell:last-child{border-radius:0 18px 18px 0}.ds-dock-cell:hover{background:rgba(11,18,32,.04)}.ds-dock-cell:focus-visible{outline:2px solid #0b1220;outline-offset:-2px}.ds-dock-label{font-size:13px;color:#566173}.ds-dock-value{font-size:18px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
+    },
+    {
+      "name": "Admin Nav Link",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Sidebar row on Mist ground.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\">Members</a><a href=\"#\">Settings</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;width:220px;padding:16px;background:#f7f8fa;border-right:1px solid rgba(11,18,32,.1)}.ds-nav a{display:flex;align-items:center;min-height:40px;padding:0 12px;border-radius:10px;color:#384456;text-decoration:none;transition:background-color 140ms}.ds-nav a:hover{background:rgba(11,18,32,.06);color:#0b1220}.ds-nav a:focus-visible{outline:2px solid #0b1220;outline-offset:3px}"
+    },
+    {
+      "name": "Bracket Mark",
+      "kind": "custom",
+      "refersTo": "bracket",
+      "description": "Four corner strokes around a coral point; brand mark and cursor.",
+      "html": "<span class=\"ds-mark\"></span>",
+      "css": ".ds-mark{position:relative;display:block;width:18px;height:18px;background:linear-gradient(#0b1220,#0b1220) left top/6px 1.5px no-repeat,linear-gradient(#0b1220,#0b1220) left top/1.5px 6px no-repeat,linear-gradient(#0b1220,#0b1220) right top/6px 1.5px no-repeat,linear-gradient(#0b1220,#0b1220) right top/1.5px 6px no-repeat,linear-gradient(#0b1220,#0b1220) left bottom/6px 1.5px no-repeat,linear-gradient(#0b1220,#0b1220) left bottom/1.5px 6px no-repeat,linear-gradient(#0b1220,#0b1220) right bottom/6px 1.5px no-repeat,linear-gradient(#0b1220,#0b1220) right bottom/1.5px 6px no-repeat}.ds-mark::after{content:'';position:absolute;inset:7px;border-radius:50%;background:#ff6a3d}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The White Pool",
+    "overview": "The class name is a body of dark pigment dispersed on a white page. The ground is pure white, the marks are near-black cool ink, and one flat coral accent marks the single thing worth doing next. The public face is an Experience surface: full-bleed, no page scroll, a particle name the cursor can grab, a slogan beneath it and a three-cell glass dock. Console and admin are Operate surfaces in the same material: plain, dense, hairline-structured.",
+    "keyCharacteristics": [
+      "White ground, near-black ink, one coral accent.",
+      "Hairline borders (10% and 24% ink alpha) carry all structure.",
+      "White frosted glass for the info sheet, the home dock, dialogs and toasts only.",
+      "Four-corner bracket is the signature: cursor (leans toward the pointer while snapped), brand mark, keyboard focus on the stage.",
+      "4px spacing base; 6/10/18px radii; Geist plus Noto Sans SC, tabular numerals for data."
+    ],
+    "rules": [
+      { "name": "The One Flare Rule", "body": "Coral appears on the primary action, the \"start\" entry, the brand mark's center dot, selection and caret. Nothing else, and never as glow or gradient text.", "section": "colors" },
+      { "name": "The Two Tone Rule", "body": "Every other surface is bg or fg at some alpha. Status hues are for state, not emphasis.", "section": "colors" },
+      { "name": "The Sentence Case Rule", "body": "Labels and headings are sentence-case at their natural weight; hierarchy never leans on uppercase, tracking tricks, or small tagged lines above headings.", "section": "typography" },
+      { "name": "The Glass Is Rare Rule", "body": "White glass is reserved for the info sheet, the home dock, dialogs and toasts. Operate surfaces (console, admin) never use it, and nothing else on the home stage becomes a pane.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do build new surfaces from bg grounds, fg text, and hairline rules.",
+      "Do spend coral only on the one primary action per view.",
+      "Do use tokens (`--bg-*`, `--fg-*`, `--s-*`, `--r-*`, `--ease-*`, `--dur-*`) and named springs; no literal curves.",
+      "Do keep every state change reversible and respect reduced motion.",
+      "Do use tabular numerals wherever data lives."
+    ],
+    "donts": [
+      "Don't add glow halos, gradient text, or a second accent hue.",
+      "Don't use glass on console or admin surfaces, or on home elements beyond the sheet and dock.",
+      "Don't reach for hero banners, card grids, or scrolling marketing pages on the public face.",
+      "Don't add calligraphy, seals, brush strokes or other motif decoration.",
+      "Don't use linear tweens for UI motion."
+    ]
+  }
+}

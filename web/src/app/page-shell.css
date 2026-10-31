@@ -1,0 +1,20 @@
+.shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(60% 40% at 50% 0%, var(--bg-850) 0%, var(--bg-950) 70%);
+}
+.shell__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-4) var(--s-5);
+}
+.shell__brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-3);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}

@@ -1,0 +1,45 @@
+.timetable { width: 100%; max-width: 1160px; margin: 0 auto; padding: 32px clamp(20px, 4vw, 48px) 80px; }
+.timetable__back { margin-bottom: 28px; }
+.timetable__heading, .timetable__editor-head, .timetable__list-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+.timetable__heading .page__sub { margin-bottom: 0; }
+.timetable__toolbar { margin: 32px 0 16px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.timetable__week, .timetable__actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.timetable__week select { min-width: 112px; }
+.timetable__scroll { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
+.timetable__table { width: 100%; min-width: 760px; border-collapse: collapse; table-layout: fixed; font-size: var(--text-sm); }
+.timetable__table th, .timetable__table td { border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); vertical-align: top; }
+.timetable__table tr > :last-child { border-right: 0; }
+.timetable__table tbody tr:last-child > * { border-bottom: 0; }
+.timetable__table thead th { padding: 12px 8px; text-align: left; font-weight: 600; background: var(--bg-900); }
+.timetable__table thead th:first-child { width: 78px; }
+.timetable__table th small { display: block; margin-top: 4px; font-size: 0.75rem; font-weight: 400; color: var(--fg-500); }
+.timetable__table tbody th { padding: 10px; text-align: left; color: var(--fg-300); font-variant-numeric: tabular-nums; }
+.timetable__table tr > :first-child { position: sticky; left: 0; z-index: 1; background: var(--bg-900); }
+.timetable__scroll-hint { display: none; margin: 0 0 8px; font-size: 0.75rem; color: var(--fg-500); }
+.timetable__table td { height: 70px; padding: 4px; }
+.timetable__lesson { display: flex; flex-direction: column; gap: 4px; height: 100%; min-height: 60px; padding: 8px; background: var(--bg-900); border-radius: var(--r-sm); overflow-wrap: anywhere; }
+.timetable__lesson span { font-size: 0.75rem; color: var(--fg-500); }
+.timetable__empty { margin: 16px 0 0; color: var(--fg-500); }
+.timetable__editor { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--line); }
+.timetable__editor-head .page__h { margin-bottom: 4px; }
+.timetable__settings, .timetable__fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 24px 0; }
+.timetable__subhead { margin: 32px 0 12px; font-size: 1rem; font-weight: 600; }
+.timetable__periods { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 24px; margin-bottom: 12px; }
+.timetable__period { display: flex; align-items: center; gap: 8px; }
+.timetable__period > span:first-child { min-width: 64px; font-size: var(--text-sm); }
+.timetable__period input { min-width: 0; }
+.timetable__list-head { align-items: center; margin-top: 36px; }
+.timetable__list-head .timetable__subhead { margin: 0; }
+.timetable__list { margin-top: 12px; border-top: 1px solid var(--line); }
+.timetable__list-item { display: flex; align-items: center; gap: 8px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.timetable__list-item > div { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.timetable__lesson-form { margin: 24px 0; padding: 1px 20px 20px; background: var(--bg-900); border-radius: var(--r-md); }
+.timetable__editor > .timetable__actions { margin-top: 24px; }
+@media (max-width: 720px) {
+  .timetable__heading, .timetable__editor-head { flex-wrap: wrap; }
+  .timetable__settings, .timetable__fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .timetable__periods { grid-template-columns: 1fr; }
+  .timetable__toolbar { flex-wrap: wrap; }
+  .timetable__scroll-hint { display: block; }
+}
+@media (max-width: 420px) { .timetable__settings, .timetable__fields { grid-template-columns: 1fr; } }

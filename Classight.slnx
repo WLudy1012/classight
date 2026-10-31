@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="backend/src/Classight.Api/Classight.Api.csproj" />
+  <Project Path="backend/tests/Classight.IntegrationTests/Classight.IntegrationTests.csproj" />
+</Solution>

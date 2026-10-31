@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0-rc.2.26504.105" />
+    <ProjectReference Include="../Classight.Platform/Classight.Platform.csproj" />
+    <ProjectReference Include="../Classight.Contracts/Classight.Contracts.csproj" />
+  </ItemGroup>
+</Project>

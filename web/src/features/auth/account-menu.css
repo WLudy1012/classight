@@ -1,0 +1,62 @@
+.acct {
+  position: relative;
+}
+.acct__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: 44px;
+  padding: 0 var(--s-3) 0 var(--s-2);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: rgba(11, 18, 32, 0.04);
+  color: var(--fg-300);
+  transition: border-color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
+}
+.acct__btn:hover {
+  border-color: var(--fg-300);
+  background: rgba(11, 18, 32, 0.09);
+}
+.acct__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--s-2));
+  min-width: 220px;
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-2);
+  border-radius: var(--r-md);
+  animation: dialog-in var(--dur-base) var(--ease-out);
+}
+.acct__who {
+  display: flex;
+  flex-direction: column;
+  padding: var(--s-2) var(--s-3) var(--s-3);
+  margin-bottom: var(--s-1);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+.acct__who span {
+  color: var(--fg-500);
+  font-size: var(--text-xs);
+}
+.acct__menu a,
+.acct__menu button {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 38px;
+  padding: 0 var(--s-3);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--fg-200);
+  font-size: var(--text-sm);
+  text-align: left;
+  text-decoration: none;
+}
+.acct__menu a:hover,
+.acct__menu button:hover {
+  background: rgba(11, 18, 32, 0.08);
+  color: var(--fg-100);
+}

@@ -1,0 +1,190 @@
+/* shared page rhythm for console and admin */
+.page {
+  min-width: 0;
+  animation: page-in var(--dur-slow) var(--ease-out) both;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.page__title {
+  font-size: var(--text-2xl);
+  letter-spacing: -0.02em;
+}
+.page__sub {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+  color: var(--fg-300);
+  font-size: var(--text-sm);
+}
+.page__section {
+  margin-top: var(--s-7);
+}
+.page__h {
+  margin-bottom: var(--s-4);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-500);
+  letter-spacing: 0.02em;
+}
+.rowline {
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+}
+.row-gap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+.row-between .page__h {
+  margin: 0;
+}
+.stack-sm {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.muted {
+  color: var(--fg-300);
+}
+.small {
+  font-size: var(--text-xs);
+}
+.form-narrow {
+  max-width: 440px;
+}
+.links {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+  max-width: 520px;
+}
+.links a {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-height: 52px;
+  border-bottom: 1px solid var(--line);
+  text-decoration: none;
+  transition: color var(--dur-fast);
+}
+.links a span {
+  flex: 1;
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.links a:hover {
+  color: var(--fg-100);
+}
+.links a:hover span {
+  transform: translateX(var(--s-2));
+}
+.sessions {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-width: 560px;
+  border-top: 1px solid var(--line);
+}
+.sessions li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-4) 0;
+  border-bottom: 1px solid var(--line);
+}
+
+/* the mark is the cursor's bracket: four corners around a point */
+.shell__mark {
+  position: relative;
+  width: 18px;
+  height: 18px;
+  background:
+    linear-gradient(var(--fg-100), var(--fg-100)) left top / 6px 1.5px no-repeat,
+    linear-gradient(var(--fg-100), var(--fg-100)) left top / 1.5px 6px no-repeat,
+    linear-gradient(var(--fg-100), var(--fg-100)) right top / 6px 1.5px no-repeat,
+    linear-gradient(var(--fg-100), var(--fg-100)) right top / 1.5px 6px no-repeat,
+    linear-gradient(var(--fg-100), var(--fg-100)) left bottom / 6px 1.5px no-repeat,
+    linear-gradient(var(--fg-100), var(--fg-100)) left bottom / 1.5px 6px no-repeat,
+    linear-gradient(var(--fg-100), var(--fg-100)) right bottom / 6px 1.5px no-repeat,
+    linear-gradient(var(--fg-100), var(--fg-100)) right bottom / 1.5px 6px no-repeat;
+}
+.shell__mark::after {
+  content: '';
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+/* shared by console and admin (moved from admin.css) */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
+}
+.toolbar .input,
+.toolbar .select {
+  width: auto;
+  min-width: 170px;
+}
+.toolbar .grow {
+  flex: 1;
+  min-width: 220px;
+}
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--s-4);
+}
+@media (max-width: 560px) {
+  .grid-2 {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.statusrow {
+  display: grid;
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: var(--s-4);
+  margin: 0;
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-sm);
+}
+.statusrow dt {
+  color: var(--fg-500);
+}
+.statusrow dd {
+  margin: 0;
+}
+.readonly-note {
+  margin-bottom: var(--s-4);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  font-size: var(--text-sm);
+  color: var(--fg-300);
+}
+.mono {
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  font-size: var(--text-xs);
+  word-break: break-all;
+}

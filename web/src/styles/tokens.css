@@ -1,0 +1,78 @@
+/*
+ * Design tokens: the "white pool" world.
+ * Two tones (bg = the page, fg = the pigment) plus ONE flat accent. Accent is reserved for the
+ * primary action and the "start" entry; do not use it for decoration.
+ */
+:root {
+  color-scheme: light;
+
+  /* bg: the page, from pure white down to hairline fills */
+  --bg-950: #ffffff;
+  --bg-900: #f7f8fa;
+  --bg-850: #f0f2f6;
+  --bg-800: #e9edf2;
+  --bg-700: #dde3ea;
+  --bg-600: #c6cfdb;
+
+  /* fg: the pigment, from near-black down to quiet labels */
+  --fg-100: #0b1220;
+  --fg-200: #1e2837;
+  --fg-300: #384456;
+  --fg-500: #566173;
+  --fg-700: #6b7686;
+
+  /* the one accent */
+  --accent: #ff6a3d;
+  --accent-hover: #ff8159;
+  --accent-press: #ec5a2d;
+  --accent-ink: #1a0903;
+
+  /* status (functional only) */
+  --danger: #c42a47;
+  --danger-bg: rgba(214, 51, 79, 0.1);
+  --success: #1a7a4f;
+  --success-bg: rgba(31, 138, 91, 0.1);
+
+  /* lines and glass */
+  --line: rgba(11, 18, 32, 0.1);
+  --line-strong: rgba(11, 18, 32, 0.24);
+  --glass-bg: rgba(255, 255, 255, 0.5);
+  --glass-bg-solid: rgba(255, 255, 255, 0.96);
+  --glass-edge: rgba(11, 18, 32, 0.12);
+  --glass-blur: 26px;
+
+  /* type */
+  --font-sans: 'Geist Variable', 'Noto Sans SC', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', system-ui, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.9375rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --text-2xl: 2.25rem;
+
+  /* space (4px base) */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 72px;
+
+  /* shape */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 18px;
+
+  /* depth: offset + soft blur only */
+  --shadow-pop: 0 18px 44px -14px rgba(15, 23, 42, 0.22), 0 2px 6px rgba(15, 23, 42, 0.07);
+
+  /* motion: exponential ease-out family, no linear tweens */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --ease-snap: cubic-bezier(0.2, 0.9, 0.1, 1);
+  --dur-fast: 140ms;
+  --dur-base: 280ms;
+  --dur-slow: 640ms;
+}

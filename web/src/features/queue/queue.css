@@ -1,0 +1,322 @@
+/* Class meeting queue. Operate surface: plain, dense, hairline-ruled; ink only, no accent. */
+.qpage {
+  width: min(1080px, 100%);
+  margin: 0 auto;
+  padding: var(--s-4) var(--s-5) var(--s-8);
+  flex: 1;
+}
+.qpage__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  margin-bottom: var(--s-5);
+}
+.qlist {
+  display: flex;
+  flex-direction: column;
+  margin-top: var(--s-5);
+  border-top: 1px solid var(--line);
+}
+.qrow {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--s-4);
+  min-height: 76px;
+  padding: var(--s-3) var(--s-2);
+  border-bottom: 1px solid var(--line);
+  color: inherit;
+  text-decoration: none;
+  transition: background-color var(--dur-fast) var(--ease-out);
+}
+.qrow:hover {
+  background: rgba(11, 18, 32, 0.035);
+}
+.qrow__date {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: var(--text-xs);
+  color: var(--fg-500);
+  line-height: 1.1;
+}
+.qrow__date b {
+  font-size: var(--text-xl);
+  color: var(--fg-100);
+  font-weight: 600;
+}
+.qrow__title {
+  display: block;
+  font-weight: 600;
+}
+.qrow__sub {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--text-sm);
+  color: var(--fg-500);
+}
+.qrow svg {
+  color: var(--fg-500);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.qrow:hover svg {
+  transform: translateX(4px);
+}
+
+/* detail */
+.qhead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--s-4);
+}
+.qhead__meta {
+  margin-top: var(--s-2);
+  color: var(--fg-500);
+  font-size: var(--text-sm);
+}
+.qhead__desc {
+  margin-top: var(--s-3);
+  max-width: 62ch;
+  color: var(--fg-300);
+}
+.qhead__side {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  flex-wrap: wrap;
+}
+.qnow {
+  display: flex;
+  align-items: center;
+  gap: var(--s-5);
+  margin: var(--s-6) 0;
+  padding: var(--s-4) var(--s-5);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  position: relative;
+}
+.qnow[data-live] {
+  border-color: var(--fg-100);
+}
+.qnow__label {
+  flex: none;
+  min-width: 5.5em;
+  font-size: var(--text-sm);
+  color: var(--fg-500);
+}
+.qnow[data-live] .qnow__label {
+  color: var(--fg-100);
+  font-weight: 600;
+}
+.qgrid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--s-7);
+}
+@media (min-width: 960px) {
+  .qgrid {
+    grid-template-columns: minmax(0, 1fr) 300px;
+  }
+  .qgrid__side {
+    position: sticky;
+    top: var(--s-5);
+    align-self: start;
+  }
+}
+.qlistx {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+.qitem {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  gap: var(--s-3);
+  padding: var(--s-4) var(--s-2);
+  border-bottom: 1px solid var(--line);
+}
+.qitem[data-status='done'],
+.qitem[data-status='skipped'] {
+  opacity: 0.62;
+}
+.qitem[data-status='skipped'] .ehead__topic {
+  text-decoration: line-through;
+}
+.qitem[data-mine] {
+  background: rgba(11, 18, 32, 0.03);
+}
+.qitem__pos {
+  padding-top: 4px;
+  color: var(--fg-500);
+  font-size: var(--text-sm);
+}
+.qitem[data-status='speaking'] .qitem__pos {
+  color: var(--fg-100);
+  font-weight: 700;
+}
+.qitem__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.qitem__tools {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+}
+.ehead {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.ehead__avatars {
+  display: flex;
+  flex: none;
+}
+.ehead__avatars .avatar + .avatar {
+  margin-left: -8px;
+  box-shadow: 0 0 0 2px var(--bg-950);
+}
+.ehead__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.ehead__topic {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.ehead[data-compact] .ehead__topic {
+  font-size: var(--text-md);
+}
+.ehead__who {
+  font-size: var(--text-sm);
+  color: var(--fg-500);
+  overflow-wrap: anywhere;
+}
+
+/* courseware */
+.cw {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+.cw__file {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+@media (max-width: 560px) {
+  .cw__file {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .cw__file .row-actions {
+    grid-column: 1 / -1;
+  }
+}
+.cw__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cw__name {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.cw__sub {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  font-size: var(--text-xs);
+}
+.cw__warn {
+  color: var(--danger);
+}
+.cw__cancel {
+  border: 0;
+  background: transparent;
+  color: var(--fg-500);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* teams */
+.teams,
+.team {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-4);
+}
+.team {
+  padding: var(--s-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+.team__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.team__members {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.team__members li {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+.team__members li > span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.secret {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: rgba(11, 18, 32, 0.04);
+}
+.secret code {
+  flex: 1;
+  font-family: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  letter-spacing: 0.08em;
+}
+.inline-form {
+  display: flex;
+  gap: var(--s-2);
+}
+.inline-form .input {
+  min-width: 0;
+}
+.choice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}

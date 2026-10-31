@@ -1,0 +1,386 @@
+/* Tabs, Progress, Dropzone, Stepper, large dialogs. Hairline structure, ink fills, no accent. */
+
+/* ---------- tabs ---------- */
+.tabs {
+  display: flex;
+  gap: var(--s-1);
+  margin-bottom: var(--s-6);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+.tabs button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  height: 40px;
+  padding: 0 var(--s-4);
+  border: 0;
+  background: transparent;
+  color: var(--fg-500);
+  white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+.tabs button:hover:not(:disabled),
+.tabs button[aria-selected='true'] {
+  color: var(--fg-100);
+}
+.tabs button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.tabs button::after {
+  content: '';
+  position: absolute;
+  left: var(--s-3);
+  right: var(--s-3);
+  bottom: -1px;
+  height: 1.5px;
+  background: var(--fg-100);
+  transform: scaleX(0);
+  transition: transform var(--dur-base) var(--ease-out);
+}
+.tabs button[aria-selected='true']::after {
+  transform: scaleX(1);
+}
+.tabs button:focus-visible {
+  outline-offset: -3px;
+}
+.tabs__count {
+  min-width: 20px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: rgba(11, 18, 32, 0.07);
+  font-size: var(--text-xs);
+  line-height: 18px;
+  text-align: center;
+  color: var(--fg-300);
+}
+.tabpanel:focus-visible {
+  outline-offset: 6px;
+}
+
+/* ---------- progress ---------- */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  min-width: 0;
+}
+.progress__track {
+  position: relative;
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg-700);
+  overflow: hidden;
+}
+.progress__bar {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: 2px;
+  background: var(--fg-100);
+  transition: width var(--dur-base) var(--ease-out);
+}
+.progress[data-tone='danger'] .progress__bar {
+  background: var(--danger);
+}
+.progress[data-tone='success'] .progress__bar {
+  background: var(--success);
+}
+.progress__bar[data-indeterminate] {
+  width: 38%;
+  animation: progress-slide 1.3s var(--ease-in-out) infinite;
+}
+@keyframes progress-slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(270%);
+  }
+}
+.progress__text {
+  min-width: 3ch;
+  font-size: var(--text-xs);
+  color: var(--fg-300);
+  text-align: right;
+}
+
+/* ---------- dropzone ---------- */
+.dropzone-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+}
+.dropzone {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--s-4);
+  padding: var(--s-5);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: rgba(11, 18, 32, 0.025);
+  color: var(--fg-300);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.dropzone[data-compact] {
+  padding: var(--s-3) var(--s-4);
+}
+.dropzone:hover:not([aria-disabled='true']) {
+  border-color: var(--fg-500);
+  background: rgba(11, 18, 32, 0.045);
+}
+.dropzone[data-over] {
+  border-color: var(--fg-100);
+  background: rgba(11, 18, 32, 0.07);
+}
+.dropzone[data-invalid] {
+  border-color: var(--danger);
+}
+.dropzone[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.dropzone__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.dropzone__title {
+  color: var(--fg-100);
+  font-weight: 500;
+}
+.dropzone__hint {
+  font-size: var(--text-xs);
+  color: var(--fg-500);
+}
+/* the cursor's bracket, closing in on the zone while a file hovers */
+.dropzone__c {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 0 solid var(--fg-100);
+  opacity: 0;
+  transition:
+    opacity var(--dur-fast) var(--ease-out),
+    transform var(--dur-base) var(--ease-out);
+}
+.dropzone__c--tl {
+  left: -1px;
+  top: -1px;
+  border-left-width: 1.5px;
+  border-top-width: 1.5px;
+  transform: translate(-4px, -4px);
+}
+.dropzone__c--tr {
+  right: -1px;
+  top: -1px;
+  border-right-width: 1.5px;
+  border-top-width: 1.5px;
+  transform: translate(4px, -4px);
+}
+.dropzone__c--bl {
+  left: -1px;
+  bottom: -1px;
+  border-left-width: 1.5px;
+  border-bottom-width: 1.5px;
+  transform: translate(-4px, 4px);
+}
+.dropzone__c--br {
+  right: -1px;
+  bottom: -1px;
+  border-right-width: 1.5px;
+  border-bottom-width: 1.5px;
+  transform: translate(4px, 4px);
+}
+.dropzone[data-over] .dropzone__c,
+.dropzone:focus-visible .dropzone__c {
+  opacity: 1;
+  transform: none;
+}
+.dropzone:focus-visible {
+  outline: none;
+  border-color: var(--fg-100);
+}
+
+/* ---------- stepper (vertical rail) ---------- */
+.stepper {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.stepper__item {
+  position: relative;
+}
+/* hairline between markers */
+.stepper__item + .stepper__item::before {
+  content: '';
+  position: absolute;
+  left: 20px;
+  top: -8px;
+  height: 16px;
+  width: 1px;
+  background: var(--line-strong);
+}
+.stepper__btn {
+  --corner: transparent;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 52px;
+  padding: var(--s-3) var(--s-3);
+  border: 0;
+  background:
+    linear-gradient(var(--corner), var(--corner)) left top / 8px 1.5px no-repeat,
+    linear-gradient(var(--corner), var(--corner)) left top / 1.5px 8px no-repeat,
+    linear-gradient(var(--corner), var(--corner)) right top / 8px 1.5px no-repeat,
+    linear-gradient(var(--corner), var(--corner)) right top / 1.5px 8px no-repeat,
+    linear-gradient(var(--corner), var(--corner)) left bottom / 8px 1.5px no-repeat,
+    linear-gradient(var(--corner), var(--corner)) left bottom / 1.5px 8px no-repeat,
+    linear-gradient(var(--corner), var(--corner)) right bottom / 8px 1.5px no-repeat,
+    linear-gradient(var(--corner), var(--corner)) right bottom / 1.5px 8px no-repeat;
+  color: var(--fg-500);
+  text-align: left;
+  transition: color var(--dur-fast) var(--ease-out);
+}
+button.stepper__btn {
+  cursor: pointer;
+}
+button.stepper__btn:hover:not(:disabled) {
+  color: var(--fg-100);
+}
+button.stepper__btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.stepper__btn[aria-current='step'] {
+  --corner: var(--fg-100);
+  color: var(--fg-100);
+}
+.stepper__marker {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--bg-950);
+  color: var(--bg-950);
+  transition:
+    background-color var(--dur-base) var(--ease-out),
+    border-color var(--dur-base) var(--ease-out);
+}
+.stepper__marker i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: transparent;
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+.stepper__item[data-current] .stepper__marker {
+  border-color: var(--fg-100);
+}
+.stepper__item[data-current] .stepper__marker i {
+  background: var(--fg-100);
+}
+.stepper__item[data-state='done'] .stepper__marker {
+  border-color: var(--fg-100);
+  background: var(--fg-100);
+}
+.stepper__item[data-state='error'] .stepper__marker {
+  border-color: var(--danger);
+  background: var(--danger);
+}
+.stepper__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.stepper__label {
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+.stepper__note {
+  font-size: var(--text-xs);
+  color: var(--fg-500);
+}
+.stepper__item[data-state='error'] .stepper__note {
+  color: var(--danger);
+}
+@media (max-width: 720px) {
+  /* a horizontal strip of steps on narrow screens: only labels, current one first in view */
+  .stepper {
+    flex-direction: row;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .stepper__item + .stepper__item::before {
+    display: none;
+  }
+  .stepper__btn {
+    width: auto;
+    min-height: 44px;
+    white-space: nowrap;
+  }
+  .stepper__note {
+    display: none;
+  }
+}
+
+/* ---------- dialog variants ---------- */
+.dialog__tools {
+  display: flex;
+  align-items: center;
+  gap: var(--s-1);
+}
+.dialog--lg {
+  width: min(960px, calc(100vw - 32px));
+}
+.dialog--lg .dialog__body {
+  max-height: calc(100dvh - 190px);
+}
+.dialog--full {
+  width: calc(100vw - 32px);
+  height: calc(100dvh - 32px);
+  max-width: none;
+  max-height: none;
+}
+.dialog--full[open] {
+  display: flex;
+  flex-direction: column;
+}
+.dialog--full .dialog__body {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+.dialog__body--flush {
+  padding: 0;
+  overflow: hidden;
+}
+@media (max-width: 560px) {
+  .dialog--full {
+    width: 100vw;
+    height: 100dvh;
+    max-height: none;
+    border-radius: 0;
+  }
+}

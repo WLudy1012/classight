@@ -1,0 +1,408 @@
+.home {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: var(--bg-950);
+  /* the stage never scrolls; gestures are intercepted by the stage driver */
+  overscroll-behavior: none;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+/* one very quiet gradient of depth: the water is a little lighter where the name forms */
+.home::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(70% 55% at 50% 28%, var(--bg-850) 0%, var(--bg-950) 72%);
+  pointer-events: none;
+}
+.home__canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  opacity: 0;
+  transition: opacity 900ms var(--ease-out);
+}
+.home[data-ready='true'] .home__canvas {
+  opacity: 1;
+}
+
+.home__static-name {
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: var(--fg-100);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  white-space: nowrap;
+  animation: static-in 900ms var(--ease-out) both;
+}
+@keyframes static-in {
+  from {
+    opacity: 0;
+    filter: blur(14px);
+  }
+}
+
+/* invisible control laid over the 3D name: pointer target + keyboard/AT entry */
+.home__hit {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  touch-action: none;
+}
+.home__hit:focus-visible {
+  outline: none;
+}
+.home__hit:focus-visible::after {
+  /* keyboard focus draws the cursor's own bracket: four corners, not a box */
+  content: '';
+  position: absolute;
+  inset: -14px;
+  --c: linear-gradient(var(--fg-100), var(--fg-100));
+  background:
+    var(--c) left top / 14px 1.5px no-repeat, var(--c) left top / 1.5px 14px no-repeat,
+    var(--c) right top / 14px 1.5px no-repeat, var(--c) right top / 1.5px 14px no-repeat,
+    var(--c) left bottom / 14px 1.5px no-repeat, var(--c) left bottom / 1.5px 14px no-repeat,
+    var(--c) right bottom / 14px 1.5px no-repeat, var(--c) right bottom / 1.5px 14px no-repeat;
+}
+.home[data-bracket='true'] .home__hit:focus-visible::after {
+  display: none; /* the bracket draws the focus */
+}
+
+/* corners */
+.home__tr,
+.home__bl,
+.home__br {
+  position: absolute;
+  z-index: 40;
+  opacity: 0;
+  animation: chrome-in 700ms var(--ease-out) 600ms forwards;
+  touch-action: manipulation;
+}
+.home__tr {
+  top: max(var(--s-5), env(safe-area-inset-top));
+  right: max(var(--s-5), env(safe-area-inset-right));
+}
+.home__bl {
+  bottom: max(var(--s-5), env(safe-area-inset-bottom));
+  left: max(var(--s-5), env(safe-area-inset-left));
+}
+.home__br {
+  bottom: max(var(--s-5), env(safe-area-inset-bottom));
+  right: max(var(--s-5), env(safe-area-inset-right));
+}
+@keyframes chrome-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.lang {
+  color: var(--fg-300);
+}
+
+.home__hint {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  bottom: max(var(--s-6), env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--fg-300);
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-slow) var(--ease-out);
+}
+.home__hint[data-show='true'] {
+  opacity: 1;
+  animation: hint-in var(--dur-slow) var(--ease-out);
+}
+@keyframes hint-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 6px);
+  }
+}
+.home[data-phase='locked'] .home__hint {
+  color: var(--fg-100);
+}
+.home__note {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  top: max(var(--s-5), env(safe-area-inset-top));
+  transform: translateX(-50%);
+  font-size: var(--text-xs);
+  color: var(--fg-500);
+}
+
+/* the sheet: smoked glass, laid out at its final place and revealed by clip-path */
+.sheet {
+  position: absolute;
+  z-index: 30;
+  --gx: max(var(--s-5), 5vw);
+  top: clamp(132px, 20vh, 210px);
+  bottom: 84px;
+  left: var(--gx);
+  right: var(--gx);
+  width: min(1160px, calc(100vw - 2 * var(--gx)));
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  border-radius: 18px;
+  visibility: hidden;
+  opacity: 0;
+  touch-action: pan-y;
+  user-select: text;
+  -webkit-user-select: text;
+  will-change: clip-path, opacity;
+}
+.sheet__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s-3) var(--s-3) var(--s-3) var(--s-5);
+  border-bottom: 1px solid var(--line);
+}
+.sheet__title {
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--fg-300);
+}
+.sheet__scroll {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 28px), transparent);
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--s-6) var(--s-5) var(--s-6);
+}
+@media (min-width: 900px) {
+  .sheet__scroll {
+    padding: var(--s-7) var(--s-7) var(--s-6);
+  }
+}
+
+/* content settles in once the sheet has fully opened */
+.sheet[data-open='true'] .cinfo > * {
+  animation: rise var(--dur-slow) var(--ease-out) both;
+}
+.sheet[data-open='true'] .cinfo > *:nth-child(2) {
+  animation-delay: 70ms;
+}
+.sheet[data-open='true'] .cinfo > *:nth-child(3) {
+  animation-delay: 140ms;
+}
+.sheet[data-open='true'] .cinfo > *:nth-child(4) {
+  animation-delay: 210ms;
+}
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+}
+
+@media (max-width: 720px) {
+  .home__br .btn-lg {
+    --btn-h: 44px;
+  }
+  .home__hint {
+    bottom: calc(max(var(--s-5), env(safe-area-inset-bottom)) + 64px);
+  }
+  .sheet {
+    bottom: 100px;
+  }
+  .home__bl .btn {
+    --btn-h: 44px;
+  }
+}
+
+/* ---------- fuller stage: hairline measure, slogan, dock ---------- */
+.home {
+  --p: 0;
+}
+/* a column grid fading toward the edges: structure behind the cloud, never competing with it */
+.home::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: linear-gradient(to right, var(--line) 1px, transparent 1px);
+  background-size: 96px 100%;
+  background-position: center top;
+  opacity: 0.55;
+  -webkit-mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 20%, transparent 78%);
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 40%, #000 20%, transparent 78%);
+  pointer-events: none;
+}
+.home__slogan {
+  position: absolute;
+  z-index: 6;
+  left: 0;
+  top: 0;
+  margin: 0;
+  max-width: min(560px, 86vw);
+  text-align: center;
+  font-size: var(--text-lg);
+  letter-spacing: 0.06em;
+  color: var(--fg-300);
+  opacity: clamp(0, calc(1 - var(--p) * 5), 1);
+  pointer-events: none;
+  /* the frame loop sets transform; centering comes from translate(-50%) there and left:50% here */
+  left: 50%;
+  animation: slogan-in 900ms var(--ease-out) 900ms both;
+}
+@keyframes slogan-in {
+  from {
+    opacity: 0;
+  }
+}
+.dock {
+  position: absolute;
+  z-index: 25;
+  left: 50%;
+  bottom: clamp(110px, 27vh, 260px);
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: min(960px, calc(100vw - 2 * var(--s-5)));
+  transform: translateX(-50%);
+  border-radius: var(--r-lg);
+  opacity: clamp(0, calc(1 - var(--p) * 4), 1);
+  animation: dock-in 900ms var(--ease-out) 1100ms both;
+  touch-action: manipulation;
+}
+@keyframes dock-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 14px);
+  }
+}
+.dock[inert] {
+  pointer-events: none;
+}
+.dock__cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-2);
+  min-width: 0;
+  min-height: 92px;
+  padding: var(--s-4) var(--s-5);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  color: var(--fg-100);
+  transition: background-color var(--dur-base) var(--ease-out);
+}
+.dock__cell + .dock__cell {
+  border-left: 1px solid var(--line);
+}
+.dock__cell:first-child {
+  border-radius: var(--r-lg) 0 0 var(--r-lg);
+}
+.dock__cell:last-child {
+  border-radius: 0 var(--r-lg) var(--r-lg) 0;
+}
+.dock__cell:hover {
+  background: rgba(11, 18, 32, 0.04);
+}
+.dock__label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  font-size: var(--text-sm);
+  color: var(--fg-500);
+}
+.dock__value {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding-right: var(--s-5);
+}
+.dock__go {
+  position: absolute;
+  right: var(--s-4);
+  bottom: var(--s-4);
+  color: var(--fg-500);
+  transition: transform var(--dur-base) var(--ease-out), color var(--dur-fast);
+}
+.dock__cell:hover .dock__go {
+  transform: translateX(4px);
+  color: var(--fg-100);
+}
+
+@media (max-width: 720px) {
+  .home__slogan {
+    font-size: var(--text-md);
+  }
+  .dock {
+    bottom: calc(max(var(--s-5), env(safe-area-inset-bottom)) + 100px);
+  }
+  .dock__cell {
+    min-height: 76px;
+    padding: var(--s-3);
+  }
+  .dock__label svg {
+    display: none;
+  }
+  .dock__value {
+    font-size: var(--text-md);
+    padding-right: 0;
+  }
+  .dock__go {
+    display: none;
+  }
+}
+@media (max-height: 640px) {
+  .dock {
+    display: none;
+  }
+}
+
+/* four cells: a 2x2 block on phones, with the divider rules following the grid */
+@media (max-width: 720px) {
+  .dock {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .dock__cell + .dock__cell {
+    border-left: 0;
+  }
+  .dock__cell:nth-child(even) {
+    border-left: 1px solid var(--line);
+  }
+  .dock__cell:nth-child(n + 3) {
+    border-top: 1px solid var(--line);
+  }
+  .dock__cell:first-child {
+    border-radius: var(--r-lg) 0 0 0;
+  }
+  .dock__cell:nth-child(2) {
+    border-radius: 0 var(--r-lg) 0 0;
+  }
+  .dock__cell:nth-child(3) {
+    border-radius: 0 0 0 var(--r-lg);
+  }
+  .dock__cell:last-child {
+    border-radius: 0 0 var(--r-lg) 0;
+  }
+}

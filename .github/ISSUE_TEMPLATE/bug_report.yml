@@ -1,0 +1,22 @@
+name: 问题报告
+description: 报告可以复现的问题
+labels: [bug]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 请包含必要的配置、操作步骤和预期结果，不要提交密码、令牌或个人信息。
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 运行环境和相关日志
+      description: 包含系统、浏览器、.NET 和 Node.js 版本；提交前请清除敏感信息。

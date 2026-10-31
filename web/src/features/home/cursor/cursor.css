@@ -1,0 +1,88 @@
+/* Four-corner bracket cursor. Pure strokes, no glow. */
+.bracket {
+  --arm: 12px;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 90;
+  width: 34px;
+  height: 34px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease-out);
+  will-change: transform, width, height;
+}
+.bracket[data-visible='true'] {
+  opacity: 1;
+}
+.bracket__c {
+  position: absolute;
+  width: var(--arm);
+  height: var(--arm);
+  border: 0 solid var(--fg-100);
+  transition: border-color var(--dur-base) var(--ease-out);
+}
+.bracket__c--tl {
+  left: 0;
+  top: 0;
+  border-left-width: 1.5px;
+  border-top-width: 1.5px;
+}
+.bracket__c--tr {
+  right: 0;
+  top: 0;
+  border-right-width: 1.5px;
+  border-top-width: 1.5px;
+}
+.bracket__c--bl {
+  left: 0;
+  bottom: 0;
+  border-left-width: 1.5px;
+  border-bottom-width: 1.5px;
+}
+.bracket__c--br {
+  right: 0;
+  bottom: 0;
+  border-right-width: 1.5px;
+  border-bottom-width: 1.5px;
+}
+.bracket[data-mode='idle'] .bracket__c {
+  border-color: var(--fg-300);
+}
+.bracket[data-mode='frame'] .bracket__c {
+  border-color: var(--fg-500);
+}
+
+.bracket-dot {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 91;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  /* white fill + ink ring: visible on the white page, on dark particles and on the coral button */
+  background: #fff;
+  box-shadow: 0 0 0 1.5px var(--fg-100), 0 1px 4px rgba(11, 18, 32, 0.28);
+  pointer-events: none;
+  opacity: 0;
+  will-change: transform;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.bracket-dot[data-on='true'] {
+  opacity: 1;
+}
+/* while free, the dot is the whole cursor: keep it a touch smaller so the bracket does the talking when snapped */
+.bracket-dot[data-mode='idle'] {
+  width: 6px;
+  height: 6px;
+  margin: 1px 0 0 1px;
+}
+
+/* the system cursor yields only on the home stage while the bracket is in charge */
+.home[data-bracket='true'][data-zone='home'],
+.home[data-bracket='true'][data-zone='home'] * ,
+.home[data-bracket='true'][data-zone='between'],
+.home[data-bracket='true'][data-zone='between'] * {
+  cursor: none;
+}

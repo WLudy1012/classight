@@ -1,0 +1,12 @@
+// Importing a module file registers it. To add a back-office page: write the file, import it here.
+import './dashboard'
+import './classProfile'
+import './members'
+import './timeline'
+import './users'
+import './roles'
+import './invites'
+import './settings'
+import './audit'
+import './system'
+import './plugins'
