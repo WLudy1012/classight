@@ -1,6 +1,8 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
+using Classight.Contracts;
 using Classight.Platform;
 using Classight.SharedKernel;
 using Microsoft.AspNetCore.DataProtection;
@@ -8,7 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Classight.Identity;
+namespace Classight.Captcha;
 
 public sealed class CaptchaPlugin : IManagedPlugin
 {
@@ -17,7 +19,6 @@ public sealed class CaptchaPlugin : IManagedPlugin
     public async Task<bool> IsReady(IServiceProvider services, CancellationToken ct) => (await services.GetRequiredService<CaptchaService>().Read(ct)).IsReady();
 }
 
-public sealed record CaptchaProof(string? Token, string? Randstr);
 public sealed record CaptchaConfigInput(string Provider, string SiteKey, string? SceneId, string? Region, string? AccessKeyId, string? Secret, string? AppSecret);
 public sealed class CaptchaConfig
 {
@@ -36,31 +37,32 @@ public sealed class CaptchaConfig
         _ => false
     });
 }
-public sealed class CaptchaService(AppDbContext db, PluginStateStore plugins, IDataProtectionProvider protection, IHttpClientFactory clients)
+public sealed class CaptchaService(AppDbContext db, PluginStateStore plugins, IDataProtectionProvider protection, IHttpClientFactory clients) : ICaptchaVerification
 {
     private const string Group = "captcha:config";
+    private static readonly JsonSerializerOptions Json = new() { TypeInfoResolver = new DefaultJsonTypeInfoResolver() };
     private readonly IDataProtector protector = protection.CreateProtector("Classight.Captcha.Configuration.v1");
     public async Task<CaptchaConfig> Read(CancellationToken ct)
     {
         var json = await db.Settings.AsNoTracking().Where(x => x.Group == Group).Select(x => x.Json).SingleOrDefaultAsync(ct);
-        return json is null ? new() : JsonSerializer.Deserialize<CaptchaConfig>(json) ?? new();
+        return json is null ? new() : JsonSerializer.Deserialize<CaptchaConfig>(json, Json) ?? new();
     }
     public async Task Save(CaptchaConfigInput input, CancellationToken ct)
     {
         var item = await db.Settings.SingleOrDefaultAsync(x => x.Group == Group, ct);
-        var old = item is null ? new CaptchaConfig() : JsonSerializer.Deserialize<CaptchaConfig>(item.Json) ?? new();
+        var old = item is null ? new CaptchaConfig() : JsonSerializer.Deserialize<CaptchaConfig>(item.Json, Json) ?? new();
         var same = old.Provider == input.Provider;
         var c = new CaptchaConfig { Provider = input.Provider, SiteKey = input.SiteKey?.Trim() ?? "", SceneId = input.SceneId?.Trim() ?? "", Region = input.Region?.Trim() ?? "cn", AccessKeyId = input.AccessKeyId?.Trim() ?? "", Secret = string.IsNullOrWhiteSpace(input.Secret) ? (same ? old.Secret : "") : protector.Protect(input.Secret), AppSecret = string.IsNullOrWhiteSpace(input.AppSecret) ? (same ? old.AppSecret : "") : protector.Protect(input.AppSecret) };
         if (!c.IsReady() || new[] { c.SiteKey, c.SceneId, c.Region, c.AccessKeyId, input.Secret ?? "", input.AppSecret ?? "" }.Any(x => x.Length > 2048)) throw ApiException.Validation("config", "请完整填写有效的验证服务配置");
         if (item is null) { item = new Setting { Group = Group }; db.Settings.Add(item); }
-        item.Json = JsonSerializer.Serialize(c);
+        item.Json = JsonSerializer.Serialize(c, Json);
         await db.SaveChangesAsync(ct);
     }
-    public async Task<object> Public(CancellationToken ct)
+    public async Task<CaptchaPublicConfiguration> Public(CancellationToken ct)
     {
-        if (!await plugins.IsEnabled("captcha", ct)) return new { enabled = false };
+        if (!await plugins.IsEnabled("captcha", ct)) return new(false);
         var c = await Read(ct);
-        return new { enabled = true, provider = c.Provider, siteKey = c.SiteKey, sceneId = c.SceneId, region = c.Region };
+        return new(true, c.Provider, c.SiteKey, c.SceneId, c.Region);
     }
     public async Task Verify(CaptchaProof? proof, HttpContext http, CancellationToken ct)
     {
@@ -70,7 +72,7 @@ public sealed class CaptchaService(AppDbContext db, PluginStateStore plugins, ID
         try
         {
             var secret = protector.Unprotect(c.Secret);
-            var client = clients.CreateClient("captcha");
+            var client = clients.CreateClient();
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(ct);
             timeout.CancelAfter(TimeSpan.FromSeconds(8));
             using var response = c.Provider switch
@@ -117,7 +119,7 @@ public sealed class CaptchaService(AppDbContext db, PluginStateStore plugins, ID
     {
         if (string.IsNullOrWhiteSpace(proof.Randstr)) throw new ApiException(422, "captcha.invalid", "请重新完成人机验证");
         const string host = "captcha.tencentcloudapi.com"; const string contentType = "application/json; charset=utf-8";
-        var body = JsonSerializer.Serialize(new { CaptchaAppId = uint.Parse(c.SiteKey), CaptchaType = 9, Ticket = proof.Token, Randstr = proof.Randstr, UserIp = http.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1", AppSecretKey = appSecret });
+        var body = JsonSerializer.Serialize(new { CaptchaAppId = uint.Parse(c.SiteKey), CaptchaType = 9, Ticket = proof.Token, Randstr = proof.Randstr, UserIp = http.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1", AppSecretKey = appSecret }, Json);
         var now = DateTimeOffset.UtcNow; var timestamp = now.ToUnixTimeSeconds(); var date = now.ToString("yyyy-MM-dd"); var scope = $"{date}/captcha/tc3_request";
         var canonical = $"POST\n/\n\ncontent-type:{contentType}\nhost:{host}\n\ncontent-type;host\n{Hash(body)}";
         var toSign = $"TC3-HMAC-SHA256\n{timestamp}\n{scope}\n{Hash(canonical)}";

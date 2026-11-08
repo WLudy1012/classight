@@ -4,10 +4,10 @@
 
 ## 服务端接入
 
-插件通过 `IModule.DeclarePermissions()` 声明权限，并确保模块参与应用启动时的模块注册。需要校验的路由可引用 `Classight.Class` 并使用：
+DLL 插件通过 `IPluginModule.DeclarePermissions()` 声明权限，加载后自动同步到系统权限目录。需要校验的路由引用共享的 `Classight.Contracts` 并使用：
 
 ```csharp
-using Classight.Class;
+using Classight.Contracts;
 
 endpoints.MapPost("/api/v1/example/action", Handler)
     .RequireMemberPermission("example.action");

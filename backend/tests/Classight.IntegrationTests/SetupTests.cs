@@ -31,6 +31,7 @@ public sealed class SetupFactory : WebApplicationFactory<Program>
             ["Jwt:Key"] = Classight.SharedKernel.JwtKeyProvider.DevelopmentDefault,
             ["Setup:LocalConfigPath"] = LocalConfigPath, ["Setup:TokenPath"] = TokenPath, ["Setup:Token"] = Token,
             ["Storage:LocalPath"] = Path.Combine(root, "media"),
+            ["Plugins:Directory"] = Path.Combine(root, "plugin"),
             ["Jwt:Issuer"] = "classight", ["Jwt:Audience"] = "classight-web",
             ["RateLimit:AuthPerMinute"] = "1000", ["RateLimit:GeneralPerMinute"] = "10000"
         }));

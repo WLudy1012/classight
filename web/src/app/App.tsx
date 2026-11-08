@@ -13,7 +13,7 @@ const HomePage = lazy(() => import('@/features/home/HomePage'))
 const LoginPage = lazy(() => import('@/features/auth/AuthPages').then((m) => ({ default: m.LoginPage })))
 const RegisterPage = lazy(() => import('@/features/auth/AuthPages').then((m) => ({ default: m.RegisterPage })))
 const ClassPage = lazy(() => import('@/features/class-info/ClassPage'))
-const ConsoleLayout = lazy(() => import('@/features/console/ConsoleLayout'))
+const WorkspaceShell = lazy(() => import('./WorkspaceShell'))
 const AdminLayout = lazy(() => import('@/features/admin/AdminLayout'))
 const SetupPage = lazy(() => import('@/features/setup/SetupPage'))
 
@@ -40,6 +40,13 @@ function SessionWatcher() {
 }
 
 export const setupKey = ['setup', 'status'] as const
+
+function LegacyConsoleRoute() {
+  const location = useLocation()
+  const path = location.pathname === '/console/profile' ? '/center/account'
+    : location.pathname === '/console/security' ? '/center/account/security' : '/center'
+  return <Navigate to={`${path}${location.search}${location.hash}`} replace />
+}
 
 /**
  * First-run gate. While the server says setup is unfinished everything routes to /setup; once the administrator exists
@@ -74,7 +81,7 @@ export function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/class" element={<ClassPage />} />
           <Route path="/setup" element={<SetupPage />} />
-          <Route path="/center/*" element={<RequireAuth><ClassCenter /></RequireAuth>} />
+          <Route path="/center/*" element={<RequireAuth><WorkspaceShell><ClassCenter /></WorkspaceShell></RequireAuth>} />
           {getClassCenterPlugins().flatMap((plugin) => plugin.routes.filter((route) => route.legacyPath).map((route) => (
             <Route key={route.legacyPath} path={route.legacyPath} element={<LegacyPluginRoute path={route.path} />} />
           )))}
@@ -82,15 +89,15 @@ export function App() {
             path="/console/*"
             element={
               <RequireAuth>
-                <ConsoleLayout />
+                <LegacyConsoleRoute />
               </RequireAuth>
             }
           />
           <Route
             path="/admin/*"
             element={
-              <RequireAuth permission="site.settings.read">
-                <AdminLayout />
+              <RequireAuth>
+                <WorkspaceShell mode="admin"><AdminLayout /></WorkspaceShell>
               </RequireAuth>
             }
           />

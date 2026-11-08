@@ -4,7 +4,8 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Classight.Platform;
 using Classight.SharedKernel;
-using Classight.Speech;
+using Classight.Contracts;
+using Classight.Api.Updates;
 using Microsoft.EntityFrameworkCore;
 
 namespace Classight.Api.Setup;
@@ -89,7 +90,7 @@ public sealed class SetupService(IServiceProvider services, DatabaseConfig datab
         var (writable, path) = StorageProbe();
         return new SetupStatusView(state, completed, !completed && state != "ready",
             new(provider, database.Configured, connected, error), new(path, writable), new(converter.Available, converter.Command),
-            jwtKeys.IsDefault, environment.EnvironmentName, "1.0.0", database.AllowSqlite);
+            jwtKeys.IsDefault, environment.EnvironmentName, ReleaseVersion.Current, database.AllowSqlite);
     }
 
     private static async Task<bool> SchemaReady(AppDbContext db, CancellationToken ct)

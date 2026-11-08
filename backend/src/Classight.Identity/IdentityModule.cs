@@ -18,21 +18,18 @@ public sealed class IdentityModule : IModule
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
         services.AddScoped<IdentityService>();
-        services.AddScoped<CaptchaService>();
-        services.AddSingleton<IManagedPlugin, CaptchaPlugin>();
         var dataProtection = services.AddDataProtection();
         var keyDirectory = configuration["DataProtection:KeyDirectory"];
         if (!string.IsNullOrWhiteSpace(keyDirectory))
             dataProtection.SetApplicationName("Classight").PersistKeysToFileSystem(new DirectoryInfo(keyDirectory));
-        services.AddHttpClient("captcha");
         services.AddScoped<IIdentityQueries>(sp => sp.GetRequiredService<IdentityService>());
     }
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
     {
         var auth = endpoints.MapGroup("/api/v1/auth").WithTags("Auth");
-        auth.MapGet("/captcha", (CaptchaService captcha, CancellationToken ct) => captcha.Public(ct));
-        auth.MapPost("/login", async (LoginRequest body, IdentityService service, CaptchaService captcha, HttpContext http, CancellationToken ct) => { await captcha.Verify(body.Captcha, http, ct); return await service.Login(body, http, ct); });
-        auth.MapPost("/register", async (RegisterRequest body, IdentityService service, CaptchaService captcha, AppDbContext db, ISiteSettingsReader settings, IClock clock, IEventBus events, HttpContext http, CancellationToken ct) =>
+        auth.MapGet("/captcha", (ICaptchaVerification captcha, CancellationToken ct) => captcha.Public(ct));
+        auth.MapPost("/login", async (LoginRequest body, IdentityService service, ICaptchaVerification captcha, HttpContext http, CancellationToken ct) => { await captcha.Verify(body.Captcha, http, ct); return await service.Login(body, http, ct); });
+        auth.MapPost("/register", async (RegisterRequest body, IdentityService service, ICaptchaVerification captcha, AppDbContext db, ISiteSettingsReader settings, IClock clock, IEventBus events, HttpContext http, CancellationToken ct) =>
         {
             await captcha.Verify(body.Captcha, http, ct);
             if ((await settings.Get<SecuritySettings>("security", ct)).RegistrationMode != "invite") throw ApiException.Forbidden();
@@ -98,9 +95,6 @@ public sealed class IdentityModule : IModule
             return new { user = service.Self(user), linkedMember = await classes.GetLinkedMember(user.Id, ct), shortcuts, unreadNotifications = await db.Notifications.CountAsync(x => x.UserId == user.Id && x.ReadAt == null, ct) };
         });
         MapAdmin(endpoints);
-        var captchaAdmin = endpoints.MapGroup("/api/v1/admin/plugins/captcha/config").WithTags("Captcha").RequireAuthorization();
-        captchaAdmin.MapGet("", async (CaptchaService captcha, CancellationToken ct) => { var c = await captcha.Read(ct); return new { c.Provider, c.SiteKey, c.SceneId, c.Region, c.AccessKeyId, secretConfigured = !string.IsNullOrEmpty(c.Secret), appSecretConfigured = !string.IsNullOrEmpty(c.AppSecret) }; }).RequireAuthorization("site.settings.read");
-        captchaAdmin.MapPut("", async (CaptchaConfigInput input, CaptchaService captcha, CancellationToken ct) => { await captcha.Save(input, ct); return Results.NoContent(); }).RequireAuthorization("site.settings.write");
     }
     private static void MapAdmin(IEndpointRouteBuilder endpoints)
     {

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Classight.Platform/Classight.Platform.csproj" />
+    <ProjectReference Include="../Classight.Contracts/Classight.Contracts.csproj" />
+  </ItemGroup>
+</Project>

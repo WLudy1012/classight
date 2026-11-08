@@ -1,18 +1,22 @@
 import { MEETINGS_PATH } from '@/features/class-center/paths'
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { speechApi, type SpeechEntry, type SpeechSessionDetail, type SpeechTeam } from '@/shared/api'
+import { speechApi, type SpeechEntry, type SpeechSessionDetail, type SpeechSessionStatus, type SpeechTeam } from '@/shared/api'
 import { can, useAuth } from '@/features/auth/store'
 import { useDocumentTitle } from '@/shared/hooks'
 import { errorMessage, fieldErrors, formatDate } from '@/shared/i18n'
 import { Avatar, Badge, Button, ConfirmDialog, Dialog, Field, Icon, Input, Skeleton, StateView, toast } from '@/shared/ui'
 import { CoursewarePanel } from './CoursewarePanel'
 import { sessionKey, StatusBadge } from './shared'
+import { SessionEditor } from './SessionEditor'
 
 export function SessionDetail({ sessionId }: { sessionId: string }) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
+  const en = i18n.language.startsWith('en')
+  const text = (zh: string, english: string) => en ? english : zh
+  const navigate = useNavigate()
   const qc = useQueryClient()
   const user = useAuth((s) => s.user)
   const canJoin = can(user, 'speech.participate')
@@ -30,6 +34,15 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
 
   const [signing, setSigning] = useState(false)
   const [dropping, setDropping] = useState<SpeechEntry | null>(null)
+  const [editing, setEditing] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [targetStatus, setTargetStatus] = useState<SpeechSessionStatus | null>(null)
+  const changeStatus = useMutation({ mutationFn: (status: SpeechSessionStatus) => speechApi.setStatus(sessionId, status), onSuccess: () => { setTargetStatus(null); void qc.invalidateQueries({ queryKey: ['speech'] }) }, onError: (error) => toast.error(errorMessage(error)) })
+  const deleteSession = useMutation({ mutationFn: () => speechApi.deleteSession(sessionId), onSuccess: () => { void qc.invalidateQueries({ queryKey: ['speech'] }); navigate(MEETINGS_PATH, { replace: true }) }, onError: (error) => toast.error(errorMessage(error)) })
+  const control = useMutation({
+    mutationFn: async ({ action, entryId, order }: { action: 'start' | 'finish' | 'skip' | 'order'; entryId?: string; order?: string[] }) => action === 'order' ? speechApi.setOrder(sessionId, order!) : action === 'start' ? speechApi.startEntry(entryId!) : action === 'finish' ? speechApi.finishEntry(entryId!) : speechApi.skipEntry(entryId!),
+    onSuccess: () => { void qc.invalidateQueries({ queryKey: ['speech'] }) }, onError: (error) => toast.error(errorMessage(error)),
+  })
 
   const drop = useMutation({
     mutationFn: (id: string) => speechApi.deleteEntry(id),
@@ -64,8 +77,17 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
   const speaking = s.entries.find((e) => e.status === 'speaking')
   const waiting = s.entries.filter((e) => e.status === 'queued')
   const mine = s.entries.find((e) => e.mine)
-  const open = (s.status === 'open' || s.status === 'running') && s.submissionsOpen
+  const open = s.status === 'open' && s.submissionsOpen
   const myTeam = s.teams.find((x) => x.mine)
+  const statusActions: { status: SpeechSessionStatus; label: string }[] = s.status === 'draft' ? [{ status: 'open', label: text('开放报名', 'Open registration') }] : s.status === 'open' ? [{ status: 'running', label: text('开始班会', 'Start meeting') }] : s.status === 'running' ? [{ status: 'closed', label: text('结束班会', 'End meeting') }, { status: 'open', label: text('恢复报名', 'Resume registration') }] : [{ status: 'open', label: text('重新开放报名', 'Reopen registration') }]
+  const moveEntry = (id: string, offset: number) => {
+    const order = waiting.map((entry) => entry.id)
+    const index = order.indexOf(id)
+    const target = index + offset
+    if (target < 0 || target >= order.length) return
+    ;[order[index], order[target]] = [order[target]!, order[index]!]
+    control.mutate({ action: 'order', order })
+  }
 
   return (
     <div className="qdetail">
@@ -94,6 +116,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           {!open && !mine && canJoin && <span className="muted small">{t('queue.closedNote')}</span>}
         </div>
       </header>
+      {manage && <div className="meeting-management"><div className="row-gap">{statusActions.map((action) => <Button key={action.status} size="sm" variant={action.status === 'closed' ? 'danger' : 'secondary'} disabled={changeStatus.isPending} onClick={() => setTargetStatus(action.status)}>{action.label}</Button>)}<Button size="sm" variant="ghost" icon="edit" onClick={() => setEditing(true)}>{text('编辑场次', 'Edit meeting')}</Button><Button size="sm" variant="ghost" icon="trash" onClick={() => setDeleting(true)}>{text('删除场次', 'Delete meeting')}</Button></div><span className="muted small">{text('管理员可调整顺序并控制发言进度。', 'Administrators can reorder entries and control presentations.')}</span></div>}
 
       <section className="qnow" aria-label={t('queue.now')} data-live={!!speaking || undefined}>
         <span className="qnow__label">{speaking ? t('queue.now') : t('queue.next')}</span>
@@ -123,6 +146,12 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
                     <div className="qitem__tools">
                       <Badge tone={e.status === 'speaking' ? 'solid' : e.status === 'done' ? 'success' : undefined}>{t(`queue.entry.${e.status}`)}</Badge>
                       {e.mine && <Badge tone="solid">{t('queue.mine')}</Badge>}
+                      {manage && <>
+                        {e.status === 'queued' && <><Button size="sm" variant="ghost" icon="arrowUp" iconOnly aria-label={text(`上移 ${e.topic}`, `Move ${e.topic} up`)} disabled={waiting[0]?.id === e.id || control.isPending} onClick={() => moveEntry(e.id, -1)} /><Button size="sm" variant="ghost" icon="arrowDown" iconOnly aria-label={text(`下移 ${e.topic}`, `Move ${e.topic} down`)} disabled={waiting.at(-1)?.id === e.id || control.isPending} onClick={() => moveEntry(e.id, 1)} /></>}
+                        {(e.status === 'queued' || e.status === 'skipped') && (s.status === 'open' || s.status === 'running') && <Button size="sm" variant="secondary" icon="play" disabled={control.isPending || !!speaking} onClick={() => control.mutate({ action: 'start', entryId: e.id })}>{text('开始发言', 'Start presentation')}</Button>}
+                        {e.status === 'speaking' && <Button size="sm" variant="secondary" icon="check" disabled={control.isPending} onClick={() => control.mutate({ action: 'finish', entryId: e.id })}>{text('完成发言', 'Finish')}</Button>}
+                        {(e.status === 'queued' || e.status === 'speaking') && s.status !== 'closed' && <Button size="sm" variant="ghost" disabled={control.isPending} onClick={() => control.mutate({ action: 'skip', entryId: e.id })}>{text('跳过', 'Skip')}</Button>}
+                      </>}
                       {(e.mine || manage) && (e.status === 'queued' || manage) && (
                         <Button size="sm" variant="ghost" onClick={() => setDropping(e)}>
                           {t('queue.cancelEntry')}
@@ -148,11 +177,14 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           <h2 id="q-teams" className="page__h">
             {t('queue.teams')}
           </h2>
-          <TeamsPanel session={s} canJoin={canJoin} refresh={refresh} />
+          <TeamsPanel session={s} canJoin={canJoin && open} refresh={refresh} />
         </aside>
       </div>
 
       {signing && <SignUpDialog session={s} onClose={() => setSigning(false)} refresh={refresh} />}
+      {editing && <SessionEditor session={s} onClose={() => setEditing(false)} />}
+      <ConfirmDialog open={targetStatus !== null} title={text('更改班会状态', 'Change meeting status')} body={targetStatus === 'closed' ? text('结束后将停止报名和上传课件，正在发言的条目会标记为完成。', 'Ending the meeting closes submissions and finishes the active presentation.') : text('确认切换班会状态？', 'Change this meeting status?')} loading={changeStatus.isPending} onConfirm={() => targetStatus && changeStatus.mutate(targetStatus)} onClose={() => setTargetStatus(null)} />
+      <ConfirmDialog open={deleting} danger title={text('删除班会', 'Delete meeting')} body={text('确定删除此班会及其报名记录？', 'Delete this meeting and its entries?')} loading={deleteSession.isPending} onConfirm={() => deleteSession.mutate()} onClose={() => setDeleting(false)} />
       <ConfirmDialog
         open={!!dropping}
         danger

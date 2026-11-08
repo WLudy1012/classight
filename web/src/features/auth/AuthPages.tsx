@@ -13,7 +13,7 @@ import './auth.css'
 function useRedirect() {
   const loc = useLocation()
   const from = (loc.state as { from?: string } | null)?.from
-  return from && from.startsWith('/') && !from.startsWith('//') ? from : '/console'
+  return from && from.startsWith('/') && !from.startsWith('//') ? from : '/center'
 }
 
 export function LoginPage() {
@@ -115,7 +115,7 @@ export function RegisterPage() {
   const [fields, setFields] = useState<Record<string, string>>({})
   const captcha = useCaptcha()
 
-  if (status === 'authenticated') return <Navigate to="/console" replace />
+  if (status === 'authenticated') return <Navigate to="/center" replace />
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement>) => setF((s) => ({ ...s, [k]: e.target.value }))
 
   const closed = site?.registrationMode === 'closed'
@@ -134,7 +134,7 @@ export function RegisterPage() {
         email: f.email.trim() || undefined,
         captcha: captcha.proof,
       })
-      nav('/console', { replace: true })
+      nav('/center', { replace: true })
     } catch (err) {
       setError(errorMessage(err))
       setFields(fieldErrors(err))

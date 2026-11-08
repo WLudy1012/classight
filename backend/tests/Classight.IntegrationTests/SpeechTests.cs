@@ -6,7 +6,6 @@ using System.Text.Json;
 using Classight.Api;
 using Classight.Platform;
 using Classight.SharedKernel;
-using Classight.Speech;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
@@ -246,12 +245,12 @@ public sealed class SpeechTests
         await using var app = new ApiFactory();
         var admin = await AdminOf(app);
         var (owner, entryId, sessionId) = await OwnedEntry(app, admin);
-        var store = app.Services.GetRequiredService<CoursewareStore>();
+        string CoursewareDirectory(Guid id) => Path.Combine(app.Root, "media", "courseware", id.ToString("N"));
 
         var pptx = await Upload(owner, entryId, Kit.Pptx(), "deck.pptx");
         Assert.Equal("pptx", pptx.GetProperty("kind").GetString());
         var firstId = pptx.GetProperty("id").GetGuid();
-        Assert.True(Directory.Exists(store.Dir(firstId)));
+        Assert.True(Directory.Exists(CoursewareDirectory(firstId)));
 
         var pdf = await Upload(owner, entryId, Kit.Pdf(), "lecture.pdf");
         Assert.Equal("pdf", pdf.GetProperty("kind").GetString());
@@ -262,8 +261,8 @@ public sealed class SpeechTests
         Assert.Equal(secondId, courseware.GetProperty("id").GetGuid());
         Assert.Equal("lecture.pdf", courseware.GetProperty("originalName").GetString());
 
-        Assert.False(Directory.Exists(store.Dir(firstId)));
-        Assert.True(Directory.Exists(store.Dir(secondId)));
+        Assert.False(Directory.Exists(CoursewareDirectory(firstId)));
+        Assert.True(Directory.Exists(CoursewareDirectory(secondId)));
         await Kit.Problem(await owner.GetAsync($"/api/v1/speech/courseware/{firstId}"), HttpStatusCode.NotFound, "resource.not_found");
     }
 

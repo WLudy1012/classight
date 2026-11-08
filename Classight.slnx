@@ -1,4 +1,18 @@
 <Solution>
   <Project Path="backend/src/Classight.Api/Classight.Api.csproj" />
+  <Project Path="backend/src/Classight.Captcha/Classight.Captcha.csproj" />
+  <Project Path="backend/src/Classight.Class/Classight.Class.csproj" />
+  <Project Path="backend/src/Classight.Content/Classight.Content.csproj" />
+  <Project Path="backend/src/Classight.Contracts/Classight.Contracts.csproj" />
+  <Project Path="backend/src/Classight.Identity/Classight.Identity.csproj" />
+  <Project Path="backend/src/Classight.MemberIdentity/Classight.MemberIdentity.csproj" />
+  <Project Path="backend/src/Classight.Platform/Classight.Platform.csproj" />
+  <Project Path="backend/src/Classight.Plugins/Classight.Plugins.csproj" />
+  <Project Path="backend/src/Classight.SharedKernel/Classight.SharedKernel.csproj" />
+  <Project Path="backend/src/Classight.SiteAdmin/Classight.SiteAdmin.csproj" />
+  <Project Path="backend/src/Classight.Speech/Classight.Speech.csproj" />
+  <Project Path="backend/src/Classight.Timetable/Classight.Timetable.csproj" />
   <Project Path="backend/tests/Classight.IntegrationTests/Classight.IntegrationTests.csproj" />
+  <Project Path="backend/tests/Classight.PluginFixture/Classight.PluginFixture.csproj" />
+  <Project Path="backend/tests/Classight.PluginFixture.V2/Classight.PluginFixture.V2.csproj" />
 </Solution>

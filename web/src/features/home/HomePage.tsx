@@ -343,7 +343,7 @@ export default function HomePage() {
 
       <div className="home__br">
         <LinkButton
-          to="/console"
+          to="/center"
           variant="primary"
           size="lg"
           iconRight="arrowRight"

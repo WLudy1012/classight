@@ -16,7 +16,7 @@ public sealed class DatabaseConfig(IConfiguration config, IHostEnvironment envir
     public string? ConnectionString { get { lock (gate) return Current.Connection; } }
     public bool AutoMigrate { get { lock (gate) return Current.AutoMigrate; } }
     public bool Configured { get { lock (gate) return !string.IsNullOrWhiteSpace(Current.Provider) && !string.IsNullOrWhiteSpace(Current.Connection); } }
-    public bool AllowSqlite => environment.IsDevelopment() || environment.IsEnvironment("Testing");
+    public bool AllowSqlite => config.GetValue<bool>("Demo:Enabled") || environment.IsDevelopment() || environment.IsEnvironment("Testing");
     public (string? Provider, string? Connection, bool AutoMigrate) Snapshot() { lock (gate) return Current; }
     public void Set(string? provider, string? connection, bool autoMigrate) { lock (gate) state = (provider, connection, autoMigrate); }
     public void Configure(DbContextOptionsBuilder options)
@@ -35,7 +35,7 @@ public sealed class DatabaseConfig(IConfiguration config, IHostEnvironment envir
                 var file = new SqliteConnectionStringBuilder(connection).DataSource;
                 if (!string.IsNullOrEmpty(file) && file != ":memory:" && Path.GetDirectoryName(Path.GetFullPath(file)) is { Length: > 0 } directory) Directory.CreateDirectory(directory);
                 options.UseSqlite(connection); break;
-            default: throw new InvalidOperationException("Database:Provider must be PostgreSql or MySql. Sqlite is restricted to development/tests.");
+            default: throw new InvalidOperationException("Database:Provider must be PostgreSql or MySql. Sqlite requires demo mode, development or testing.");
         }
     }
 }

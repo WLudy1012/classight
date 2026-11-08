@@ -1,0 +1,8 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../src/Classight.SharedKernel/Classight.SharedKernel.csproj" />
+    <ProjectReference Include="../../src/Classight.Platform/Classight.Platform.csproj" />
+    <ProjectReference Include="../../src/Classight.Contracts/Classight.Contracts.csproj" />
+  </ItemGroup>
+</Project>

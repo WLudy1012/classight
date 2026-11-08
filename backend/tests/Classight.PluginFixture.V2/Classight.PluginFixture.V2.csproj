@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Classight.PluginFixture</AssemblyName>
+    <DefineConstants>VERSION_TWO</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../Classight.PluginFixture/FixtureModule.cs" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../src/Classight.SharedKernel/Classight.SharedKernel.csproj" />
+    <ProjectReference Include="../../src/Classight.Platform/Classight.Platform.csproj" />
+    <ProjectReference Include="../../src/Classight.Contracts/Classight.Contracts.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,4 +1,4 @@
-import type { ComponentType } from 'react'
+import type { ComponentType, ReactElement } from 'react'
 import type { Permission } from '@/shared/api'
 import type { IconName } from '@/shared/ui'
 
@@ -9,8 +9,9 @@ export interface ClassCenterPlugin {
   description: string
   icon: IconName
   path: string
+  category?: 'class' | 'account'
   permission?: Permission
-  routes: { path: string; element: ComponentType; legacyPath?: string }[]
+  routes: { path: string; element: ComponentType | ReactElement; legacyPath?: string }[]
   DockEntry?: ComponentType
 }
 

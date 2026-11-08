@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Hello plugin</title>
+  <style>
+    body{margin:0;padding:24px;font:16px/1.6 system-ui,sans-serif;color:#0b1220;background:#fff}main{max-width:680px}h1{font-size:28px;margin:0 0 12px}p{color:#566173}button{font:inherit;padding:10px 18px;border:1px solid #c6cfdb;border-radius:8px;background:#f7f8fa;cursor:pointer}button:focus-visible{outline:2px solid #0b1220;outline-offset:3px}pre{white-space:pre-wrap;overflow-wrap:anywhere;border-top:1px solid #dde3ea;padding-top:20px}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Hello plugin</h1>
+    <p>这个页面和接口由同一个 DLL 提供。</p>
+    <button id="request" type="button">读取插件接口</button>
+    <pre id="result" role="status">点击按钮读取插件接口。</pre>
+  </main>
+  <script>
+    const pending = new Set();
+    document.getElementById('request').addEventListener('click', () => {
+      const requestId = String(Date.now()) + Math.random().toString(16).slice(2);
+      pending.add(requestId);
+      parent.postMessage({type:'classight:request',requestId,method:'GET',path:'/plugins/hello/api/status'}, '*');
+    });
+    addEventListener('message', (event) => {
+      const message = event.data;
+      if (event.source !== parent || !message || message.type !== 'classight:response' || !pending.delete(message.requestId)) return;
+      document.getElementById('result').textContent = JSON.stringify(message.ok ? message.data : message.error, null, 2);
+    });
+  </script>
+</body>
+</html>

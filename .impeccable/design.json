@@ -11,7 +11,7 @@
       "success": { "role": "status", "displayName": "Success", "canonical": "#1a7a4f", "tonalRamp": ["#0a2f1e", "#115238", "#1a7a4f", "#1f8a5b", "#4fa882", "#7fc4a4", "#b0dcc8", "#dcf0e6"] }
     },
     "typographyMeta": {
-      "display": { "displayName": "Display", "purpose": "Console and admin page titles." },
+      "display": { "displayName": "Display", "purpose": "Workspace and management page titles." },
       "headline": { "displayName": "Headline", "purpose": "Sheet and major headings." },
       "title": { "displayName": "Title", "purpose": "Dialog and empty-state titles, dock values, home slogan." },
       "body": { "displayName": "Body", "purpose": "Default text." },
@@ -39,8 +39,7 @@
       { "name": "narrow", "value": "560px" },
       { "name": "stage-compact", "value": "720px" },
       { "name": "stage-short", "value": "640px (max-height; dock hidden)" },
-      { "name": "console", "value": "860px" },
-      { "name": "admin", "value": "900px" },
+      { "name": "workspace", "value": "900px" },
       { "name": "wide", "value": "980px" }
     ]
   },
@@ -102,12 +101,12 @@
       "css": ".ds-dock{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:560px;border-radius:18px;border:1px solid rgba(11,18,32,.12);background:rgba(255,255,255,.5);-webkit-backdrop-filter:blur(26px) saturate(1.2);backdrop-filter:blur(26px) saturate(1.2);box-shadow:0 18px 44px -14px rgba(15,23,42,.22),0 2px 6px rgba(15,23,42,.07),inset 0 1px 0 rgba(255,255,255,.9)}.ds-dock-cell{display:flex;flex-direction:column;gap:8px;min-height:92px;padding:16px 24px;border:0;background:transparent;text-align:left;color:#0b1220;transition:background-color 280ms cubic-bezier(.16,1,.3,1)}.ds-dock-cell+.ds-dock-cell{border-left:1px solid rgba(11,18,32,.1)}.ds-dock-cell:first-child{border-radius:18px 0 0 18px}.ds-dock-cell:last-child{border-radius:0 18px 18px 0}.ds-dock-cell:hover{background:rgba(11,18,32,.04)}.ds-dock-cell:focus-visible{outline:2px solid #0b1220;outline-offset:-2px}.ds-dock-label{font-size:13px;color:#566173}.ds-dock-value{font-size:18px;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}"
     },
     {
-      "name": "Admin Nav Link",
+      "name": "Workspace Nav Link",
       "kind": "nav",
       "refersTo": "navigation",
-      "description": "Sidebar row on Mist ground.",
-      "html": "<nav class=\"ds-nav\"><a href=\"#\">Members</a><a href=\"#\">Settings</a></nav>",
-      "css": ".ds-nav{display:flex;flex-direction:column;gap:2px;width:220px;padding:16px;background:#f7f8fa;border-right:1px solid rgba(11,18,32,.1)}.ds-nav a{display:flex;align-items:center;min-height:40px;padding:0 12px;border-radius:10px;color:#384456;text-decoration:none;transition:background-color 140ms}.ds-nav a:hover{background:rgba(11,18,32,.06);color:#0b1220}.ds-nav a:focus-visible{outline:2px solid #0b1220;outline-offset:3px}"
+      "description": "Shared workspace and management sidebar row on Mist ground; account pages stay in the same shell.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\" aria-current=\"page\">Timetable</a><a href=\"#\">Class meetings</a><a href=\"#\">Account settings</a></nav>",
+      "css": ".ds-nav{display:flex;flex-direction:column;gap:3px;width:248px;padding:16px;background:#f7f8fa;border-right:1px solid rgba(11,18,32,.1)}.ds-nav a{display:flex;align-items:center;min-height:42px;padding:10px 12px;border-radius:10px;color:#384456;text-decoration:none;transition:background-color 140ms}.ds-nav a:hover{background:#e9edf2;color:#0b1220}.ds-nav a[aria-current=\"page\"]{background:#0b1220;color:#fff}.ds-nav a:focus-visible{outline:2px solid #0b1220;outline-offset:3px}"
     },
     {
       "name": "Bracket Mark",
@@ -120,7 +119,7 @@
   ],
   "narrative": {
     "northStar": "The White Pool",
-    "overview": "The class name is a body of dark pigment dispersed on a white page. The ground is pure white, the marks are near-black cool ink, and one flat coral accent marks the single thing worth doing next. The public face is an Experience surface: full-bleed, no page scroll, a particle name the cursor can grab, a slogan beneath it and a three-cell glass dock. Console and admin are Operate surfaces in the same material: plain, dense, hairline-structured.",
+    "overview": "The class name is a body of dark pigment dispersed on a white page. The ground is pure white, the marks are near-black cool ink, and one flat coral accent marks the single thing worth doing next. The public face is an Experience surface: full-bleed, no page scroll, a particle name the cursor can grab, a slogan beneath it and a three-cell glass dock. The workspace and management mode share one Operate shell: a 248px sidebar, page context header and common content container. At 900px and below the sidebar becomes a navigation drawer. Class apps and account settings keep the same navigation context.",
     "keyCharacteristics": [
       "White ground, near-black ink, one coral accent.",
       "Hairline borders (10% and 24% ink alpha) carry all structure.",
@@ -132,7 +131,7 @@
       { "name": "The One Flare Rule", "body": "Coral appears on the primary action, the \"start\" entry, the brand mark's center dot, selection and caret. Nothing else, and never as glow or gradient text.", "section": "colors" },
       { "name": "The Two Tone Rule", "body": "Every other surface is bg or fg at some alpha. Status hues are for state, not emphasis.", "section": "colors" },
       { "name": "The Sentence Case Rule", "body": "Labels and headings are sentence-case at their natural weight; hierarchy never leans on uppercase, tracking tricks, or small tagged lines above headings.", "section": "typography" },
-      { "name": "The Glass Is Rare Rule", "body": "White glass is reserved for the info sheet, the home dock, dialogs and toasts. Operate surfaces (console, admin) never use it, and nothing else on the home stage becomes a pane.", "section": "elevation" }
+      { "name": "The Glass Is Rare Rule", "body": "White glass is reserved for the info sheet, the home dock, dialogs and toasts. Operate surfaces (workspace and management) never use it, and nothing else on the home stage becomes a pane.", "section": "elevation" }
     ],
     "dos": [
       "Do build new surfaces from bg grounds, fg text, and hairline rules.",
@@ -143,7 +142,7 @@
     ],
     "donts": [
       "Don't add glow halos, gradient text, or a second accent hue.",
-      "Don't use glass on console or admin surfaces, or on home elements beyond the sheet and dock.",
+      "Don't use glass on workspace or management surfaces, or on home elements beyond the sheet and dock.",
       "Don't reach for hero banners, card grids, or scrolling marketing pages on the public face.",
       "Don't add calligraphy, seals, brush strokes or other motif decoration.",
       "Don't use linear tweens for UI motion."

@@ -110,7 +110,7 @@ export const enSpeech: typeof zhSpeech = {
       title: 'Welcome to Classight',
       body: 'A few minutes to set up the database, an administrator and your class details. The backend console prints a one-time Setup Token: paste it below.',
       token: 'Setup Token',
-      tokenHint: 'Find it in the backend console, or in data/setup-token.txt',
+      tokenHint: 'Find it in the backend console or the token file on the server',
       tokenOptional: 'This server does not ask for a token. Just continue',
       next: 'Start setup',
       resume: 'Setup is unfinished. Picking up where you left off',

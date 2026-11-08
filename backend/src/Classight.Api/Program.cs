@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using Classight.Api;
 using Classight.Api.Setup;
+using Classight.Api.Updates;
 using Classight.Class;
 using Classight.Content;
 using Classight.Contracts;
@@ -9,22 +10,78 @@ using Classight.Identity;
 using Classight.Platform;
 using Classight.SharedKernel;
 using Classight.SiteAdmin;
-using Classight.Speech;
+using Classight.Plugins;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.Extensions.Configuration.Json;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
 using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using StackExchange.Redis;
 
-var builder = WebApplication.CreateBuilder(args);
-// A developer's appsettings.Local.json (written by a real setup run) must never leak into the test environment.
-if (!builder.Environment.IsEnvironment("Testing")) builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true);
+var embeddedSettings = typeof(Program).Assembly.GetManifestResourceStream("Classight.DefaultSettings.json");
+var standalone = embeddedSettings is not null;
+var configDirectory = Path.Combine(AppContext.BaseDirectory, "config");
+if (standalone)
+{
+    Directory.SetCurrentDirectory(AppContext.BaseDirectory);
+    Directory.CreateDirectory(configDirectory);
+    var mainConfig = Path.Combine(configDirectory, "appsettings.json");
+    var oldConfig = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+    var oldLocalConfig = Path.Combine(AppContext.BaseDirectory, "appsettings.Local.json");
+    if (File.Exists(oldConfig) && !File.Exists(mainConfig)) File.Copy(oldConfig, mainConfig, false);
+    var localConfig = Path.Combine(configDirectory, "appsettings.Local.json");
+    if (File.Exists(oldLocalConfig) && !File.Exists(localConfig)) File.Copy(oldLocalConfig, localConfig, false);
+    var oldKeys = Path.Combine(AppContext.BaseDirectory, "data", "protection-keys");
+    var keys = Path.Combine(configDirectory, "protection-keys");
+    var migrationMarker = Path.Combine(configDirectory, ".legacy-keys-migrated");
+    if (Directory.Exists(oldKeys) && !File.Exists(migrationMarker))
+    {
+        foreach (var source in Directory.EnumerateFiles(oldKeys, "*", SearchOption.AllDirectories))
+        {
+            var target = Path.Combine(keys, Path.GetRelativePath(oldKeys, source));
+            Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+            if (!File.Exists(target)) File.Copy(source, target, false);
+        }
+        File.WriteAllText(migrationMarker, "migrated\n");
+    }
+    if (!File.Exists(mainConfig))
+    {
+        try
+        {
+            using var file = new FileStream(mainConfig, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+            using var writer = new StreamWriter(file, new UTF8Encoding(false));
+            writer.WriteLine("{\n  \"Urls\": \"http://0.0.0.0:5080\"\n}");
+        }
+        catch (IOException) when (File.Exists(mainConfig)) { }
+    }
+}
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    ContentRootPath = standalone ? AppContext.BaseDirectory : null
+});
+if (standalone)
+{
+    foreach (var source in builder.Configuration.Sources.OfType<JsonConfigurationSource>()
+        .Where(source => source.Path is not null && source.Path.StartsWith("appsettings", StringComparison.OrdinalIgnoreCase)).ToArray())
+        builder.Configuration.Sources.Remove(source);
+}
+if (embeddedSettings is not null) builder.Configuration.Sources.Insert(0, new JsonStreamConfigurationSource { Stream = embeddedSettings });
+if (standalone) builder.Configuration.AddJsonFile(Path.Combine(configDirectory, "appsettings.json"), optional: false);
+if (!builder.Environment.IsEnvironment("Testing")) builder.Configuration.AddJsonFile(standalone ? Path.Combine(configDirectory, "appsettings.Local.json") : "appsettings.Local.json", optional: true);
 builder.Configuration.AddEnvironmentVariables();
+if (standalone)
+{
+    if (string.IsNullOrWhiteSpace(builder.Configuration["Setup:LocalConfigPath"])) builder.Configuration["Setup:LocalConfigPath"] = Path.Combine(configDirectory, "appsettings.Local.json");
+    if (string.IsNullOrWhiteSpace(builder.Configuration["Setup:TokenPath"])) builder.Configuration["Setup:TokenPath"] = Path.Combine(configDirectory, "setup-token.txt");
+    if (string.IsNullOrWhiteSpace(builder.Configuration["DataProtection:KeyDirectory"])) builder.Configuration["DataProtection:KeyDirectory"] = Path.Combine(configDirectory, "protection-keys");
+}
 var key = builder.Configuration["Jwt:Key"];
 if (key is null || Encoding.UTF8.GetByteCount(key) < 32)
 {
@@ -41,6 +98,24 @@ builder.Services.Configure<FormOptions>(options => options.MultipartBodyLengthLi
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
 builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddHttpClient();
+if (standalone)
+{
+    builder.Services.AddHttpClient(GitHubReleaseSource.ClientName, client =>
+    {
+        client.DefaultRequestHeaders.UserAgent.ParseAdd("ClassightDaemon/" + ReleaseVersion.Current);
+        client.Timeout = Timeout.InfiniteTimeSpan;
+    })
+    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+    {
+        AllowAutoRedirect = false,
+        UseCookies = false,
+        ConnectTimeout = TimeSpan.FromSeconds(15),
+        MaxResponseHeadersLength = 32
+    })
+    .RemoveAllLoggers();
+    builder.Services.AddHostedService<ReleaseUpdateService>();
+}
 builder.Services.AddHttpForwarder();
 builder.Services.AddSingleton<FrontendProxy>();
 builder.Services.AddSingleton<IClock, SystemClock>();
@@ -51,6 +126,12 @@ var jwtKeys = new JwtKeyProvider(key);
 builder.Services.AddSingleton<IJwtKeyProvider>(jwtKeys);
 builder.Services.AddDbContext<AppDbContext>((services, options) => services.GetRequiredService<DatabaseConfig>().Configure(options));
 builder.Services.AddScoped<PluginStateStore>();
+builder.Services.AddClassightPluginRuntime(builder.Configuration, Path.Combine(builder.Environment.ContentRootPath, "plugin"));
+builder.Services.AddScoped<IEnumerable<IManagedPlugin>>(services => services.GetRequiredService<PluginRuntime>().ManagedPlugins);
+builder.Services.AddScoped<ICaptchaVerification, ReloadableCaptcha>();
+builder.Services.AddSingleton<IPresentationConverter, ReloadableConverter>();
+builder.Services.AddScoped<IMemberPermissionVerifier, ReloadableMemberPermissions>();
+builder.Services.AddHostedService<PluginPermissionSync>();
 builder.Services.AddSingleton<SetupService>();
 if (builder.Configuration.GetValue<bool>("Redis:Enabled"))
 {
@@ -70,8 +151,9 @@ if (builder.Configuration.GetValue<bool>("Mongo:Enabled"))
 else { builder.Services.AddScoped<IAuditStore, RelationalAuditStore>(); builder.Services.AddScoped<IActivityStore, RelationalActivityStore>(); }
 builder.Services.AddScoped<IEventBus, EventBus>(); builder.Services.AddScoped<IEventHandler, AuditEventHandler>(); builder.Services.AddScoped<IEventHandler, CacheEventHandler>();
 builder.Services.AddSingleton<IMediaStorage, LocalMediaStorage>(); builder.Services.AddSingleton<IEmailSender, NoopEmailSender>(); builder.Services.AddScoped<INotificationDispatcher, NotificationDispatcher>();
-IModule[] modules = [new IdentityModule(), new ClassModule(), new MemberIdentityModule(), new TimetableModule(), new ContentModule(), new SiteAdminModule(), new SpeechModule()];
-var catalog = new PermissionCatalog(modules); builder.Services.AddSingleton<IPermissionCatalog>(catalog);
+IModule[] modules = [new IdentityModule(), new ClassModule(), new ContentModule(), new SiteAdminModule()];
+var corePermissions = modules.SelectMany(module => module.DeclarePermissions()).ToArray();
+builder.Services.AddSingleton<IPermissionCatalog>(services => new RuntimePermissionCatalog(corePermissions, services.GetRequiredService<PluginRuntime>()));
 foreach (var module in modules) module.AddServices(builder.Services, builder.Configuration);
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJwtBearer(options =>
 {
@@ -108,7 +190,8 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         OnForbidden = context => ApiErrors.Write(context.HttpContext, 403, "permission.denied", "没有权限执行此操作")
     };
 });
-builder.Services.AddAuthorization(options => { foreach (var permission in catalog.All) options.AddPolicy(permission.Code, policy => policy.RequireAuthenticatedUser().RequireClaim("permission", permission.Code)); });
+builder.Services.AddAuthorization(options => { foreach (var permission in corePermissions) options.AddPolicy(permission.Code, policy => policy.RequireAuthenticatedUser().RequireClaim("permission", permission.Code)); });
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, PluginPolicyProvider>();
 builder.Services.AddOpenApi();
 var app = builder.Build();
 var frontendProxy = app.Services.GetRequiredService<FrontendProxy>();
@@ -140,6 +223,7 @@ app.Use(async (http, next) =>
     await next(http);
 });
 app.UseAuthentication(); app.UseAuthorization();
+app.UseClassightPlugins();
 app.UseWebSockets();
 app.Use(async (http, next) =>
 {
@@ -154,6 +238,7 @@ app.UseMiddleware<PublicCacheMiddleware>();
 // wwwroot keep the API-only behavior. The content root is the working directory the process was started from.
 var webRoot = Path.Combine(app.Environment.ContentRootPath, "wwwroot");
 var spaIndex = Path.Combine(webRoot, "index.html");
+var embeddedFrontend = new EmbeddedFrontend();
 if (!frontendProxy.Enabled && Directory.Exists(webRoot))
 {
     app.UseStaticFiles(new StaticFileOptions
@@ -166,7 +251,11 @@ if (!frontendProxy.Enabled && Directory.Exists(webRoot))
         }
     });
 }
+if (!frontendProxy.Enabled && embeddedFrontend.Available)
+    app.Use(async (http, next) => { if (!await embeddedFrontend.Serve(http, http.Request.Path.Value ?? "")) await next(http); });
 foreach (var module in modules) module.MapEndpoints(app);
+app.MapGet("/api/v1/plugins/catalog", (PluginRuntime plugins) => plugins.Manifests).RequireAuthorization();
+app.MapGet("/api/v1/admin/plugins/runtime", (PluginRuntime plugins) => plugins.Status).RequireAuthorization("site.settings.read");
 SetupEndpoints.Map(app);
 app.MapOpenApi().RequireAuthorization("system.read");
 async Task Fallback(HttpContext http)
@@ -187,11 +276,16 @@ async Task Fallback(HttpContext http)
         await Results.File(spaIndex, "text/html").ExecuteAsync(http);
         return;
     }
+    if (!Path.HasExtension(http.Request.Path.Value) && await embeddedFrontend.Serve(http, "/index.html")) return;
     await Results.Problem(statusCode: 404, title: "资源不存在", extensions: new Dictionary<string, object?> { ["code"] = "resource.not_found" }).ExecuteAsync(http);
 }
 if (frontendProxy.Enabled) app.MapFallback("{**path}", Fallback);
 else app.MapFallback(Fallback);
 var setup = app.Services.GetRequiredService<SetupService>();
+var pluginRuntime = app.Services.GetRequiredService<PluginRuntime>();
+var pluginDirectory = app.Configuration["Plugins:Directory"] ?? Path.Combine(app.Environment.ContentRootPath, "plugin");
+BuiltinPluginInstaller.Ensure(pluginDirectory);
+await pluginRuntime.InitializeAsync(app.Lifetime.ApplicationStopping);
 try { await DatabaseBootstrap.Initialize(app.Services, app.Configuration, app.Environment, app.Lifetime.ApplicationStopping); }
 catch (Exception ex) when (!app.Environment.IsEnvironment("Testing"))
 {

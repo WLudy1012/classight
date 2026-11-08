@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Classight.SharedKernel;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -12,7 +13,7 @@ namespace Classight.Platform;
 
 public static class JsonDefaults
 {
-    public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web);
+    public static JsonSerializerOptions Options => new(JsonSerializerDefaults.Web) { TypeInfoResolver = new DefaultJsonTypeInfoResolver() };
     public static string Serialize(object? value) => JsonSerializer.Serialize(value, Options);
 }
 public interface ICacheService
@@ -44,7 +45,7 @@ public sealed class RedisLock(IConnectionMultiplexer redis) : IDistributedLock
         var token = Guid.NewGuid().ToString("N"); var db = redis.GetDatabase();
         var name = "classight:lock:" + key;
         var deadline = DateTimeOffset.UtcNow.AddSeconds(10);
-        while (!await db.StringSetAsync(name, token, TimeSpan.FromSeconds(30), When.NotExists))
+        while (!await db.StringSetAsync(name, token, TimeSpan.FromMinutes(5), When.NotExists))
         {
             if (DateTimeOffset.UtcNow >= deadline) throw new ApiException(503, "dependency.unavailable", "锁等待超时");
             await Task.Delay(50, ct);

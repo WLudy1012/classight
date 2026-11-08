@@ -34,7 +34,7 @@ public sealed class CaptchaTests
     {
         var provider = new ProviderState();
         await using var app = new ApiFactory();
-        await using var configured = app.WithWebHostBuilder(builder => builder.ConfigureTestServices(services => services.AddHttpClient("captcha").ConfigurePrimaryHttpMessageHandler(() => new Handler(provider))));
+        await using var configured = app.WithWebHostBuilder(builder => builder.ConfigureTestServices(services => services.AddHttpClient(string.Empty).ConfigurePrimaryHttpMessageHandler(() => new Handler(provider))));
         using var client = configured.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost"), HandleCookies = false });
         var login = await Kit.Json(await client.PostAsJsonAsync("/api/v1/auth/login", new { account = "admin", password = "IntegrationAdmin123!" }));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", login.GetProperty("accessToken").GetString());

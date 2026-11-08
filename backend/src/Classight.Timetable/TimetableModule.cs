@@ -1,26 +1,29 @@
 using System.Globalization;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Classight.Platform;
 using Classight.SharedKernel;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Classight.Class;
+namespace Classight.Timetable;
 
 public sealed record TimetablePeriod(string Start, string End);
 public sealed record TimetableLesson(Guid Id, string Name, string Teacher, string Room, int Day, int StartPeriod, int EndPeriod, int StartWeek, int EndWeek, string Weeks);
 public sealed record TimetableWrite(string Term, DateOnly StartDate, int TotalWeeks, TimetablePeriod[] Periods, TimetableLesson[] Lessons, long Version);
 
-public sealed class TimetableModule : IModule
+public sealed class TimetableModule : IPluginModule
 {
     private const string Group = "plugin:timetable:data";
-    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { TypeInfoResolver = new DefaultJsonTypeInfoResolver() };
     public string Name => "Timetable";
+    public PluginManifest Manifest => new("timetable", "Timetable", "Term, weeks and lessons", "1.0.0", WorkspacePath: "timetable", Icon: "calendar");
     public IEnumerable<PermissionDefinition> DeclarePermissions() => [new("timetable.manage", Name, "管理课程表")];
     public void AddServices(IServiceCollection services, IConfiguration configuration) => services.AddSingleton<IManagedPlugin>(new ManagedPlugin("timetable", true));
     public void MapEndpoints(IEndpointRouteBuilder endpoints)
@@ -37,7 +40,7 @@ public sealed class TimetableModule : IModule
             var item = await db.Settings.AsNoTracking().SingleOrDefaultAsync(x => x.Group == Group, ct);
             return item is null ? Default() : Parse(item);
         });
-        group.MapPut("", async (TimetableWrite input, AppDbContext db, IEventBus events, CancellationToken ct) =>
+        group.MapPut("", async ([FromBody] TimetableWrite input, AppDbContext db, IEventBus events, CancellationToken ct) =>
         {
             Validate(input);
             var item = await db.Settings.SingleOrDefaultAsync(x => x.Group == Group, ct);

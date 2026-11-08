@@ -51,7 +51,7 @@ public static class DatabaseBootstrap
         foreach (var (group, value) in defaults) if (!await db.Settings.AnyAsync(x => x.Group == group, ct)) db.Settings.Add(new Setting { Group = group, Json = JsonDefaults.Serialize(value) });
         if (!await db.ClassProfiles.AnyAsync(ct)) db.ClassProfiles.Add(new ClassProfile());
         await db.SaveChangesAsync(ct);
-        await SystemState.Update(db, d => d.SeededPermissions = codes, ct);
+        await SystemState.Update(db, d => d.SeededPermissions = seeded.Union(codes).ToArray(), ct);
 
         if (!await db.Users.AnyAsync(ct) && config["Bootstrap:Password"] is { Length: > 0 } password)
         {

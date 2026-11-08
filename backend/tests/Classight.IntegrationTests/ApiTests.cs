@@ -31,6 +31,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
         {
             ["Database:Provider"] = "Sqlite", ["ConnectionStrings:Main"] = "Data Source=" + Path.Combine(root, "test.db"),
+            ["Plugins:Directory"] = Path.Combine(root, "plugin"),
             ["Jwt:Key"] = Classight.SharedKernel.JwtKeyProvider.DevelopmentDefault,
             ["Jwt:Issuer"] = "classight", ["Jwt:Audience"] = "classight-web",
             ["Bootstrap:Username"] = "admin", ["Bootstrap:Password"] = "IntegrationAdmin123!", ["Storage:LocalPath"] = Path.Combine(root, "media"),

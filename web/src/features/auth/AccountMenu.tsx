@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { Avatar, Icon, LinkButton } from '@/shared/ui'
-import { can, useAuth } from './store'
+import { useAuth } from './store'
 import './account-menu.css'
 
 /** Top-right of the home stage: "Sign in" when anonymous, avatar + menu when signed in. */
@@ -58,17 +58,15 @@ export function AccountMenu() {
             <strong>{user.displayName}</strong>
             <span>@{user.username}</span>
           </div>
-          <Link role="menuitem" to="/console" onClick={() => setOpen(false)}>
-            <Icon name="user" /> {t('console.title')}
+          <Link role="menuitem" to="/center" onClick={() => setOpen(false)}>
+            <Icon name="grid" /> {t('center.title')}
           </Link>
           <Link role="menuitem" to="/class" onClick={() => setOpen(false)}>
             <Icon name="users" /> {t('console.classInfo')}
           </Link>
-          {can(user, 'site.settings.read') && (
-            <Link role="menuitem" to="/admin" onClick={() => setOpen(false)}>
-              <Icon name="sliders" /> {t('console.admin')}
-            </Link>
-          )}
+          <Link role="menuitem" to="/center/account" onClick={() => setOpen(false)}>
+            <Icon name="user" /> {t('console.profile')}
+          </Link>
           <button
             role="menuitem"
             onClick={async () => {

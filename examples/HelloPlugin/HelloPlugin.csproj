@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>Classight.HelloPlugin</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../backend/src/Classight.SharedKernel/Classight.SharedKernel.csproj" Private="false" GlobalPropertiesToRemove="Version;AssemblyVersion;FileVersion;InformationalVersion" />
+    <EmbeddedResource Include="index.html" LogicalName="Classight.PluginUi.index.html" />
+  </ItemGroup>
+</Project>

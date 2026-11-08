@@ -108,7 +108,7 @@ export const zhSpeech = {
       title: '欢迎使用 Classight',
       body: '几分钟内完成数据库、管理员账号和班级信息的设置。后端控制台里有一次性的 Setup Token，请粘贴到下面。',
       token: 'Setup Token',
-      tokenHint: '在后端控制台，或 data/setup-token.txt 里找到它',
+      tokenHint: '在后端控制台或服务器生成的令牌文件中找到它',
       tokenOptional: '这台服务器没有要求 Token，可以直接继续',
       next: '开始设置',
       resume: '设置还没完成，继续上次的进度',

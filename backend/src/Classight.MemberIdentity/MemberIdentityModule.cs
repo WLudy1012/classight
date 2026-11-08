@@ -7,7 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Classight.Class;
+namespace Classight.MemberIdentity;
 
 public sealed class MemberPermissionVerifier(PluginStateStore plugins, IPermissionCatalog catalog, ICurrentUser user) : IMemberPermissionVerifier
 {
@@ -21,24 +21,10 @@ public sealed class MemberPermissionVerifier(PluginStateStore plugins, IPermissi
     }
 }
 
-public static class MemberPermissionEndpointExtensions
-{
-    public static RouteHandlerBuilder RequireMemberPermission(this RouteHandlerBuilder route, string permission)
-    {
-        route.RequireAuthorization();
-        route.AddEndpointFilter(async (context, next) =>
-        {
-            var verifier = context.HttpContext.RequestServices.GetRequiredService<IMemberPermissionVerifier>();
-            await verifier.RequirePermission(permission, context.HttpContext.RequestAborted);
-            return await next(context);
-        });
-        return route;
-    }
-}
-
-public sealed class MemberIdentityModule : IModule
+public sealed class MemberIdentityModule : IPluginModule
 {
     public string Name => "MemberIdentity";
+    public PluginManifest Manifest => new("member-identity", "Member permissions", "Shared permission verification for plugins", "1.0.0", WorkspacePath: "identity", Category: "account", Icon: "shield");
     public IEnumerable<PermissionDefinition> DeclarePermissions() => [];
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {

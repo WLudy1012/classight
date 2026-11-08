@@ -1,30 +1,200 @@
-.center {
-  width: min(1080px, 100%);
-  margin: 0 auto;
-  padding: var(--s-4) var(--s-5) var(--s-8);
-  flex: 1;
+.center,
+.account-settings {
+  width: 100%;
+  min-width: 0;
 }
-.center__back { margin-bottom: var(--s-5); }
+
+.center__heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s-5);
+}
+
+.center__heading .page__title {
+  max-width: 20ch;
+  text-wrap: balance;
+}
+
+.center__heading .btn {
+  flex: none;
+  margin-top: var(--s-1);
+}
+
+.center__tools {
+  margin-top: var(--s-7);
+}
+
+.center__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  margin-bottom: var(--s-4);
+}
+
+.center__toolbar h2 {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.center__toolbar .input {
+  width: 260px;
+}
+
 .center__list {
-  max-width: 680px;
-  margin: var(--s-7) 0 0;
+  margin: 0;
   padding: 0;
   list-style: none;
   border-top: 1px solid var(--line);
 }
+
 .center__list a {
   display: flex;
   align-items: center;
-  gap: var(--s-4);
-  min-height: 80px;
-  padding: var(--s-3) var(--s-2);
+  gap: var(--s-5);
+  min-height: 108px;
+  padding: var(--s-5) var(--s-2);
   color: var(--fg-100);
   text-decoration: none;
   border-bottom: 1px solid var(--line);
   transition: background-color var(--dur-fast) var(--ease-out);
 }
-.center__list a:hover { background: rgba(11, 18, 32, 0.035); }
-.center__list a > span { flex: 1; min-width: 0; }
-.center__list strong, .center__list small { display: block; }
-.center__list small { margin-top: var(--s-1); color: var(--fg-500); }
-.center__empty { margin-top: var(--s-7); color: var(--fg-500); }
+
+.center__list a:hover {
+  background: var(--bg-900);
+}
+
+.center__tool-icon {
+  display: grid;
+  place-items: center;
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  color: var(--fg-300);
+  background: var(--bg-900);
+  border-radius: var(--r-md);
+}
+
+.center__tool-copy {
+  flex: 1;
+  min-width: 0;
+}
+
+.center__tool-copy strong,
+.center__tool-copy small {
+  display: block;
+}
+
+.center__tool-copy strong {
+  font-size: var(--text-lg);
+}
+
+.center__tool-copy small {
+  margin-top: var(--s-1);
+  color: var(--fg-500);
+  font-size: var(--text-sm);
+  line-height: 1.6;
+}
+
+.center__tool-open {
+  display: flex;
+  align-items: center;
+  flex: none;
+  gap: var(--s-3);
+  color: var(--fg-500);
+  font-size: var(--text-sm);
+}
+
+.center__loading {
+  display: grid;
+  gap: var(--s-4);
+}
+
+.account-settings__tabs {
+  display: flex;
+  gap: var(--s-5);
+  margin-top: var(--s-6);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+}
+
+.account-settings__tabs a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex: none;
+  padding: var(--s-3) 0;
+  color: var(--fg-500);
+  font-size: var(--text-sm);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.account-settings__tabs a.active {
+  color: var(--fg-100);
+  border-bottom-color: var(--fg-100);
+}
+
+.account-settings__tabs a:hover {
+  color: var(--fg-100);
+}
+
+.account-settings__content {
+  padding-top: var(--s-6);
+}
+
+.account-panel > .page__section:first-child {
+  margin-top: 0;
+}
+
+.member-permissions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--line);
+}
+
+.member-permissions li {
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-sm);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .center__heading {
+    flex-direction: column;
+    gap: var(--s-4);
+  }
+
+  .center__toolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .center__toolbar .input {
+    width: 100%;
+  }
+
+  .center__list a {
+    min-height: 100px;
+    gap: var(--s-3);
+    padding-inline: 0;
+  }
+
+  .center__tool-open {
+    font-size: 0;
+    gap: 0;
+  }
+
+  .account-settings__tabs {
+    gap: var(--s-4);
+  }
+}
+.account-settings__identity { display: flex; flex-wrap: wrap; align-items: center; gap: var(--s-3) var(--s-5); padding-top: var(--s-5); color: var(--fg-500); font-size: var(--text-sm); }
+.account-settings__identity > div { display: flex; align-items: center; flex-wrap: wrap; gap: var(--s-2); }
+.account-settings__identity > div:last-child { flex: 1 1 260px; flex-wrap: nowrap; align-items: flex-start; }
+.account-settings__identity > div:last-child > span { min-width: 0; flex: 1; }
+.account-settings__identity > div:last-child > svg { flex-shrink: 0; margin-top: 2px; }
+.plugin-frame { width: 100%; min-height: calc(100dvh - 184px); border: 0; background: var(--bg-950); display: block; }

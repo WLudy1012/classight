@@ -6,7 +6,7 @@ import { errorMessage, fieldErrors } from '@/shared/i18n'
 import { useAuth } from '@/features/auth/store'
 import { Avatar, Button, Field, Input, Textarea, toast } from '@/shared/ui'
 
-export function ProfilePage() {
+export function ProfilePage({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const { user, setUser } = useAuth()
   const qc = useQueryClient()
@@ -73,8 +73,8 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="page">
-      <h1 className="page__title">{t('console.profileTitle')}</h1>
+    <div className={embedded ? 'account-panel' : 'page'}>
+      {!embedded && <h1 className="page__title">{t('console.profileTitle')}</h1>}
 
       <section className="page__section" aria-labelledby="p-avatar">
         <h2 id="p-avatar" className="page__h">

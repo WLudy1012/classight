@@ -4,6 +4,8 @@ Classight 是一个面向班级的自托管网站，包含公开班级信息、�
 
 班级中心的功能以插件注册，包含班会报名、课件和课程表。管理后台提供成员、角色权限、站点设置和插件管理。登录与注册可配置 Cloudflare Turnstile、阿里云验证码或腾讯云验证码。仓库中的示例班级资料和模拟账号仅用于演示，部署前应替换。
 
+Windows x64 和 Linux x64 发布版支持从 GitHub 自动下载更新。安装步骤和生效时机见[安装与自动更新](docs/releases.md)。
+
 ## 开始开发
 
 需要 Node.js 24、pnpm 10 和 [global.json](global.json) 指定的 .NET 11 SDK 预览版。后端正式部署使用 PostgreSQL 或 MySQL；MongoDB 和 Redis 为可选依赖。
@@ -44,6 +46,7 @@ dotnet test Classight.slnx
 
 - [API 契约](docs/api-contract.md)和[班会及安装接口](docs/api-contract-speech-setup.md)
 - [班级中心插件](docs/class-center-plugins.md)与[成员权限验证插件](docs/member-permission-plugin.md)
+- [DLL 插件开发与热重载](docs/dll-plugins.md)，含独立网页示例
 - [课程表插件](docs/timetable-plugin.md)
 - [YARP 前端反向代理](docs/reverse-proxy.md)
 - [贡献指南](CONTRIBUTING.md)与[安全问题报告](SECURITY.md)

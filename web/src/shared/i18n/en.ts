@@ -3,7 +3,7 @@ import { enSpeech } from './en.speech'
 
 export const en: Dict = {
   timetable: { title: 'Timetable', description: 'View lessons and class times by week' },
-  center: { title: 'Class center', description: 'Find class activities and tools here.', meetingsDescription: 'Browse meetings, sign up and submit courseware.', empty: 'No class features are available yet.' },
+  center: { title: 'Workspace', description: 'Class activities and everyday tools.', meetingsDescription: 'Browse meetings, sign up and submit courseware.', empty: 'No class features are available yet.' },
   memberIdentity: { title: 'Member permissions', description: 'View the permissions for your account.', explanation: 'Account roles grant permissions that other plugins can use to protect actions.', currentPermissions: 'Current account permissions', empty: 'This account has no permissions.' },
   common: {
     loading: 'Loading…',
@@ -76,7 +76,7 @@ export const en: Dict = {
     back: 'Back to home',
     login: 'Sign in',
     start: 'start',
-    startAria: 'Open the user console',
+    startAria: 'Open the workspace',
     userMenu: 'Account menu',
     fallbackNote: 'Showing the static version on this device',
     sceneAria: 'The class name made of particles. Move the pointer to disturb it',
@@ -99,7 +99,7 @@ export const en: Dict = {
   auth: {
     login: 'Sign in',
     loginTitle: 'Sign in to {{name}}',
-    loginSub: 'Use your account to open the console',
+    loginSub: 'Sign in to your class workspace',
     account: 'Username or email',
     password: 'Password',
     submit: 'Sign in',
@@ -125,7 +125,7 @@ export const en: Dict = {
     forbiddenBody: 'Your account lacks the permission this area requires.',
   },
   console: {
-    title: 'User console',
+    title: 'Workspace',
     welcome: 'Hello, {{name}}',
     linkedMember: 'Class member record',
     notLinked: 'No member record is linked yet. Ask an administrator to link one.',

@@ -9,6 +9,8 @@
 - `Classight.Content`：媒体上传和受保护读取。
 - `Classight.SiteAdmin`：公开站点数据、设置、健康检查、审计和系统状态。
 - `Classight.Api`：组合模块、JWT、ProblemDetails、OpenAPI 和启动初始化。
+- `Classight.Plugins`：DLL 发现、独立加载、接口切换和生命周期管理。
+- `Classight.Speech`、`Classight.Captcha`、`Classight.Timetable`、`Classight.MemberIdentity`：四个独立的可热重载业务插件。
 
 ## 本地启动
 
@@ -24,7 +26,7 @@ $env:Database__AutoMigrate = "true"
 F:/classight/.tools/dotnet/dotnet.exe run --project backend/src/Classight.Api
 ```
 
-MySQL 使用 `Database__Provider=MySql`，并将 `ConnectionStrings__Main` 设置为 MySQL 连接字符串。SQLite 只允许 Development/Testing。
+MySQL 使用 `Database__Provider=MySql`，并将 `ConnectionStrings__Main` 设置为 MySQL 连接字符串。SQLite 可用于 Development、Testing 或显式配置 `Demo:Enabled=true` 的演示包。
 
 MongoDB 和 Redis 默认关闭；启用时分别设置 `Mongo__Enabled=true`、`ConnectionStrings__Mongo`、`Mongo__Database`，以及 `Redis__Enabled=true`、`ConnectionStrings__Redis`。Mongo 只替换审计和活动流存储，Redis 替换缓存、锁和限流。
 
@@ -47,6 +49,10 @@ F:/classight/.tools/ef/dotnet-ef.exe database update --project backend/src/Class
 
 ## 单进程托管前端（无需反向代理）
 
+发布的 `ClassightDaemon` / `ClassightDaemon.exe` 已嵌入前端和内置插件，直接运行即可。它以二进制所在目录作为根目录，自动生成 `config/appsettings.json`，默认监听 `http://0.0.0.0:5080`。修改该文件的 `Urls` 后重启可更换监听地址和端口；安装向导生成的数据库及密钥配置保存在 `config/appsettings.Local.json`，密钥环在 `config/protection-keys/`，业务文件在 `data/`。无需把文件放入 `/var`。
+
+插件位于同目录的 `plugin/`。放入、替换或删除 DLL 后自动重载，无需重启；开发规范见 [DLL 插件文档](../docs/dll-plugins.md)。以下 `wwwroot/` 方式用于未嵌入前端的常规开发发布。
+
 把前端构建产物（`web/dist`）放到**内容根目录下的 `wwwroot/`**，后端会同时托管页面与静态资源，一个进程一个端口即可对外服务：
 
 ```
@@ -56,15 +62,15 @@ backend/
   Classight.Api
 ```
 
-- 内容根目录 = **启动时的工作目录**。`appsettings.json` 与 `wwwroot/` 必须能从同一个工作目录读到，所以要在 `backend/` 目录内启动进程（`cd backend && ./Classight.Api`）。
+- 常规发布的内容根目录是启动工作目录；独立 daemon 则始终使用二进制所在目录。
 - 路由规则：`/api/**` 与 `/health/**` 始终走 API（未知路由返回 RFC 7807 ProblemDetails 404）；其余路径命中静态文件则直接返回，否则回退到 `wwwroot/index.html` 交给前端路由。
 - `wwwroot/assets/**` 是内容哈希产物，响应带 `Cache-Control: public, max-age=31536000, immutable`；`index.html` 始终 `no-cache`。
 - 没有 `wwwroot/` 时后端保持纯 API 行为（所有未匹配路由返回 404 JSON），集成测试即依赖这一行为。
-- 监听地址由 `ASPNETCORE_URLS` 决定（默认只听 `localhost:5000`）；对外服务需显式设置，例如 `ASPNETCORE_URLS=http://0.0.0.0:5080`。
+- 常规发布可用 `ASPNETCORE_URLS` 设置地址；独立 daemon 也支持该环境变量，优先于 `config/appsettings.json`。
 
 ## 首次运行与密钥
 
-- 全新安装（数据库尚未配置）时若未提供 `Jwt:Key`，后端会回退到开发默认密钥并打印警告，**保证能启动进入 Setup 向导**；向导完成时会把生成的随机密钥写入 `appsettings.Local.json`。数据库已配置却缺少密钥属于部署误配，后端仍会直接失败退出。
+- 全新安装（数据库尚未配置）时若未提供 `Jwt:Key`，后端会回退到开发默认密钥并打印警告，保证能进入 Setup 向导；向导完成时会把生成的随机密钥写入本地配置（独立 daemon 为 `config/appsettings.Local.json`）。数据库已配置却缺少密钥时，后端会失败退出。
 - Setup 期间的 `503 setup.required` 是门禁的正常响应（前端会自动跳转到 `/setup`），日志级别为 Debug，不会在默认日志级别下刷错误堆栈。
 
 ## 人机验证密钥

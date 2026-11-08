@@ -8,5 +8,6 @@ registerClassCenterPlugin({
   description: 'memberIdentity.description',
   icon: 'shield',
   path: 'identity',
+  category: 'account',
   routes: [{ path: 'identity', element: lazy(() => import('@/features/member-identity/MemberIdentityPage')) }],
 })

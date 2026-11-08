@@ -66,7 +66,7 @@ function PasswordForm() {
   )
 }
 
-export function SecurityPage() {
+export function SecurityPage({ embedded = false }: { embedded?: boolean } = {}) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const nav = useNavigate()
@@ -86,8 +86,8 @@ export function SecurityPage() {
   })
 
   return (
-    <div className="page">
-      <h1 className="page__title">{t('console.securityTitle')}</h1>
+    <div className={embedded ? 'account-panel' : 'page'}>
+      {!embedded && <h1 className="page__title">{t('console.securityTitle')}</h1>}
 
       <section className="page__section" aria-labelledby="s-pw">
         <h2 id="s-pw" className="page__h">

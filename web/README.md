@@ -22,7 +22,7 @@ Copy `.env.example` to `.env.local` and set `VITE_API_MODE=http`. Requests go to
 
 ```
 src/
-  app/                 routes, page shell
+  app/                 routes, shared workspace shell and public page shell
   shared/
     api/               types (mirror the contract), client (401 → refresh → retry), endpoints, mock/
     ui/                buttons, fields, dialog, toasts, tables, icons, page rhythm
@@ -32,15 +32,23 @@ src/
     home/              stage (state machine), cursor (bracket + magnets), scene (GPGPU particles)
     class-info/        the class story (sheet on home, full page at /class)
     auth/              store, guards, login/register, account menu
-    console/           user console ("start")
-    class-center/      plugin registration, navigation and routes
+    console/           profile and account security forms
+    class-center/      workspace overview, account settings and plugin routes
     queue/             class meetings and courseware
     timetable/         timetable plugin
     setup/             first-run setup
-    admin/             shell + registry; pages are modules in admin/modules/
+    admin/             management route registry; pages are modules in admin/modules/
 ```
 
 Class-center plugins register their routes and optional home entry in `class-center/plugins/`. Management presentation and configuration are registered separately in `admin/plugin-config/`. See [the plugin guide](../docs/class-center-plugins.md) for the server-side state, dependency and authorization rules.
+
+## Workspace navigation
+
+Signed-in pages share `app/WorkspaceShell.tsx`: `/center` is the workspace overview and `/admin` switches the same shell into management mode. The shell owns navigation, page context, language and sign-out controls. Desktop uses a sidebar; narrow screens use a keyboard-accessible navigation drawer.
+
+Profile and security are grouped under `/center/account` and `/center/account/security`. Plugins with `category: 'account'` appear as account settings tabs; other plugins appear in the class app navigation and workspace tool list. Route components render content inside the shared shell and must not add another `PageShell`, global navigation or `main` element.
+
+Existing `/console`, `/console/profile` and `/console/security` links redirect to the workspace and corresponding account settings pages, preserving query strings and fragments. Plugin legacy routes such as `/queue` remain available through the plugin registry. Known restricted management routes show permission feedback; unknown routes show the missing-page state.
 
 ## Home page
 

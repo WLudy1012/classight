@@ -126,7 +126,7 @@ components:
 
 **Creative North Star: "The White Pool"**
 
-The class name is a body of dark pigment dispersed on a white page. The ground is pure white, the marks are near-black cool ink, and one flat coral accent marks the single thing worth doing next. The public face (home, class info, login) is an Experience surface: full-bleed, no page scroll, a particle name the cursor can grab. Console and admin are Operate surfaces in the same material: plain, dense, hairline-structured, never decorated.
+The class name is a body of dark pigment dispersed on a white page. The ground is pure white, the marks are near-black cool ink, and one flat coral accent marks the single thing worth doing next. The public face (home, class info, login) is an Experience surface: full-bleed, no page scroll, a particle name the cursor can grab. The signed-in workspace and its management mode are Operate surfaces in the same material: plain, dense, hairline-structured, never decorated. They share one navigation shell so class tools, account settings and administration retain the same context.
 
 The system is strictly two tones plus one accent. Structure comes from 1px low-alpha ink lines, not fills or heavy shadows. The home stage adds a faint hairline column grid that fades toward the edges, a one-line slogan under the name, and a three-cell glass dock as the entrance to the sheet. Motion is exponential ease-out and critically-damped springs; nothing tweens linearly (except the functional spinner and skeleton). The look is modern and minimal, and does not borrow calligraphy, seals, brush strokes, or other motif decoration.
 
@@ -145,7 +145,7 @@ Two tones and a single warm flare. Bg is the page, fg is the pigment.
 - **Coral Flare** (accent): primary action and the "start" entry only; also text selection, caret, and the brand mark's center dot. Hover and press shades and the label ink are in the tokens.
 
 ### Neutral
-- **Page White** (bg-950): page ground and home stage. **Mist** (bg-900): admin sidebar. **Lifted White** (bg-850): the quiet radial lift behind the name. **bg-800/700/600**: skeletons, option menus, switch tracks, scrollbar thumbs.
+- **Page White** (bg-950): page ground and home stage. **Mist** (bg-900): workspace sidebar. **Lifted White** (bg-850): the quiet radial lift behind the name. **bg-800/700/600**: skeletons, option menus, switch tracks, scrollbar thumbs.
 - **Near-Black Ink** (fg-100): primary text, default focus ring, bracket strokes, switch on-state. **fg-200/300**: secondary text, labels, slogan, hint. **fg-500**: hints, table heads, section headings, dock labels. **fg-700**: placeholders and scrollbar hover.
 - **Hairline** (line) for dividers, table rules and the home column grid; **Strong Hairline** (line-strong) for control borders.
 
@@ -164,7 +164,7 @@ Two tones and a single warm flare. Bg is the page, fg is the pigment.
 **Character:** One quiet sans family for both scripts; hierarchy comes from size and weight 500/600, not from a second face.
 
 ### Hierarchy
-- **Display** (600, 2.25rem, 1.2, -0.02em): console/admin page titles; the home name is rendered as particles.
+- **Display** (600, 2.25rem, 1.2, -0.02em): workspace and management page titles; the home name is rendered as particles.
 - **Headline** (600, 1.5rem): sheet and major headings.
 - **Title** (600, 1.125rem): dialog titles, empty-state titles, dock values (-0.01em).
 - **Body** (400, 0.9375rem, 1.55): default text; prose capped near 42ch in states. The home slogan is body-size or title-size (1.125rem, fg-300, centered, max 560px).
@@ -176,7 +176,11 @@ Two tones and a single warm flare. Bg is the page, fg is the pigment.
 
 ## Layout
 
-Home is a fixed full-viewport stage (no page scroll, wheel and touch drive progress 0..1). A hairline column grid (96px columns, 55% opacity, radially masked toward the edges) sits behind the cloud. The name sits in the upper third, the slogan directly under it, the three-cell dock in the lower middle (up to 780px wide, bottom offset clamp(110px, 27vh, 260px)); slogan and dock fade out as progress rises. Chrome sits only in corners: top-right login or avatar, bottom-right start, bottom-left language, bottom-center hint; offsets are max(24px, safe-area inset). Below 720px the dock cells shrink (76px, icons and arrows hidden); below 640px viewport height the dock is hidden. Admin is a 248px sticky sidebar plus fluid content at 900px and up, collapsing to a toggled top bar below; console switches at 860px; further breakpoints at 980px, 720px, 560px. Page rhythm: title, 12px sub row, 48px between sections, 16px under section headings. Spacing is a 4px scale (4 to 72). Lists are full-width hairline rows (52px links, 16px vertical session rows), not cards.
+Home is a fixed full-viewport stage (no page scroll, wheel and touch drive progress 0..1). A hairline column grid (96px columns, 55% opacity, radially masked toward the edges) sits behind the cloud. The name sits in the upper third, the slogan directly under it, the three-cell dock in the lower middle (up to 780px wide, bottom offset clamp(110px, 27vh, 260px)); slogan and dock fade out as progress rises. Chrome sits only in corners: top-right login or avatar, bottom-right start, bottom-left language, bottom-center hint; offsets are max(24px, safe-area inset). Below 720px the dock cells shrink (76px, icons and arrows hidden); below 640px viewport height the dock is hidden.
+
+Signed-in pages use one `WorkspaceShell`: a 248px sticky sidebar, a 72px context header and a shared content container. The content container is capped at 1256px including its side padding, leaving up to 1160px for page content; desktop content starts 40px below the header with 24–48px side padding. At 900px and below the sidebar becomes a navigation drawer, the header is 64px tall and the content uses 20px side padding. Child pages supply content only and do not add another shell, `main`, global navigation or outer page margins. Tables may scroll horizontally inside this content area.
+
+The workspace overview is `/center`; `/admin` switches the same shell into management mode. Account profile and security are grouped at `/center/account` and `/center/account/security`. Class tools remain plugin routes; plugins marked `category: 'account'` appear as account settings tabs. Old `/console` routes redirect to these destinations. Page rhythm remains title, 12px sub row, 48px between major sections and 16px under section headings. Spacing is a 4px scale (4 to 72). Lists use full-width hairline rows, with grouped management entry lists instead of repeated metric cards.
 
 ## Elevation & Depth
 
@@ -187,7 +191,7 @@ Flat by default; depth is tonal (bg steps) and hairline. The single shadow is fo
 - **White Glass** (bg rgba(255,255,255,0.5), 26px blur, saturate 1.2, 1px edge rgba(11,18,32,0.12), inset top highlight rgba(255,255,255,0.9)): falls back to a 96% white solid when backdrop-filter is unsupported. Dialog backdrop is rgba(15,23,42,0.32) with 6px blur.
 
 ### Named Rules
-**The Glass Is Rare Rule.** White glass is reserved for the info sheet, the home dock, dialogs and toasts. Operate surfaces (console, admin) never use it, and nothing else on the home stage becomes a pane.
+**The Glass Is Rare Rule.** White glass is reserved for the info sheet, the home dock, dialogs and toasts. Operate surfaces (workspace and management) never use it, and nothing else on the home stage becomes a pane.
 
 ## Shapes
 
@@ -218,7 +222,10 @@ Soft but restrained: 6px (skeletons), 10px (buttons, inputs, tables, toasts), 18
 - One glass pane, three equal cells (class info, classmates, timeline), each a bracket snap target and a shortcut into the sheet at that section. Cell: 16px/24px padding, min 92px, a small icon plus fg-500 label above a 600 title-size value (ellipsized, tabular numerals), an arrow bottom-right that nudges 4px on hover; hover washes the cell 4% ink. Cells are separated by 1px hairlines and inherit the pane's outer corners. Values come from the same overview data as the sheet.
 
 ### Navigation
-- Admin sidebar on bg-900 with a right hairline, 40px rows, 10px radius, 2px gaps; console and home use corner chrome.
+- One workspace sidebar on bg-900 with a right hairline, 42px minimum rows, 10px radius and 3px gaps. The selected destination uses ink with white text. A workspace/management switch changes the navigation set while preserving the shell. Account settings and the return to the public homepage stay at the bottom.
+- Class applications come from the enabled plugin registry; account plugins appear in account settings tabs. Management entries come from the permission-filtered admin registry. The shell owns navigation search, language, sign-out and the current page context.
+- Mobile navigation uses a dismissible drawer with focus containment, Escape handling and a visible close button. The same destinations remain available on desktop and mobile.
+- Page-level tabs group related settings. Site settings use sections for identity, appearance, security and storage; verification provider settings stay with the human-verification plugin.
 
 ### Bracket (signature)
 - Pointer-following cursor on the stage: 1.5px fg-100 corners that follow with spring inertia, snap to the name or a dock cell, lean a few px toward the pointer while snapped (a looser spring than the snap), and expand into the sheet rect. The same mark is the brand logo (18px, with a coral center dot) and the keyboard focus on the name.
@@ -237,7 +244,7 @@ Soft but restrained: 6px (skeletons), 10px (buttons, inputs, tables, toasts), 18
 
 ### Don't:
 - **Don't** add glow halos, gradient text, or a second accent hue.
-- **Don't** use glass on console or admin surfaces, or on home elements beyond the sheet and dock.
+- **Don't** use glass on workspace or management surfaces, or on home elements beyond the sheet and dock.
 - **Don't** reach for hero banners, card grids, or scrolling marketing pages on the public face.
 - **Don't** add calligraphy, seals, brush strokes or other motif decoration.
 - **Don't** use linear tweens for UI motion.

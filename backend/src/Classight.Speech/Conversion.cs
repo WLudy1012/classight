@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Threading.Channels;
 using Classight.Platform;
+using Classight.Contracts;
+using Classight.SharedKernel;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,15 +10,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Classight.Speech;
-
-/// <summary>Converts a presentation to PDF. Implementations must be safe to call from a single background worker.</summary>
-public interface IPresentationConverter
-{
-    bool Available { get; }
-    string? Command { get; }
-    /// <summary>Converts <paramref name="inputPath"/> (extension .ppt or .pptx) and returns the path of the produced PDF, or null on failure.</summary>
-    Task<string?> ConvertToPdf(string inputPath, string workDirectory, CancellationToken ct);
-}
 
 public sealed class SofficeConverter(IConfiguration config, ILogger<SofficeConverter> logger) : IPresentationConverter
 {
@@ -60,6 +53,7 @@ public sealed class SofficeConverter(IConfiguration config, ILogger<SofficeConve
         catch (OperationCanceledException)
         {
             try { process.Kill(true); } catch (InvalidOperationException) { }
+            await process.WaitForExitAsync(CancellationToken.None);
             logger.LogWarning("Presentation conversion timed out or was cancelled");
             return null;
         }
@@ -76,17 +70,25 @@ public sealed class ConversionQueue
     public IAsyncEnumerable<Guid> ReadAll(CancellationToken ct) => channel.Reader.ReadAllAsync(ct);
 }
 
-public sealed class ConversionWorker(ConversionQueue queue, IServiceScopeFactory scopes, CoursewareStore store, IPresentationConverter converter, ILogger<ConversionWorker> logger) : BackgroundService
+public sealed class ConversionWorker(ConversionQueue queue, IServiceScopeFactory scopes, CoursewareStore store, IPresentationConverter converter, IDistributedLock locks, ILogger<ConversionWorker> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         if (!converter.Available) return;
-        _ = Task.Run(() => Requeue(stoppingToken), stoppingToken);
-        await foreach (var id in queue.ReadAll(stoppingToken))
+        var requeue = Requeue(stoppingToken);
+        try
         {
-            try { await Convert(id, stoppingToken); }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
-            catch (Exception ex) { logger.LogError(ex, "Courseware conversion crashed for {Id}", id); await Mark(id, "failed", null, stoppingToken); }
+            await foreach (var id in queue.ReadAll(stoppingToken))
+            {
+                try { await Convert(id, stoppingToken); }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { return; }
+                catch (Exception ex) { logger.LogError(ex, "Courseware conversion crashed for {Id}", id); await Mark(id, "failed", null, stoppingToken); }
+            }
+        }
+        finally
+        {
+            try { await requeue; }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { }
         }
     }
 
@@ -107,7 +109,8 @@ public sealed class ConversionWorker(ConversionQueue queue, IServiceScopeFactory
 
     private async Task Convert(Guid id, CancellationToken ct)
     {
-        var kind = await KindOf(id, ct);
+        await using var lease = await AcquireConversionLock(id, ct);
+        var kind = await PendingKind(id, ct);
         if (kind is not ("ppt" or "pptx") || !File.Exists(store.OriginalPath(id))) return;
         var work = Path.Combine(store.Dir(id), "work");
         string? result = null;
@@ -121,13 +124,23 @@ public sealed class ConversionWorker(ConversionQueue queue, IServiceScopeFactory
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { logger.LogWarning(ex, "Courseware conversion IO failure for {Id}", id); }
         finally { try { if (Directory.Exists(work)) Directory.Delete(work, true); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
+        ct.ThrowIfCancellationRequested();
         if (!await Mark(id, result is null ? "failed" : "ready", result, ct) && result is not null) File.Delete(store.PdfPath(id));
     }
 
-    private async Task<string?> KindOf(Guid id, CancellationToken ct)
+    private async Task<string?> PendingKind(Guid id, CancellationToken ct)
     {
         await using var scope = scopes.CreateAsyncScope();
-        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Coursewares.AsNoTracking().Where(x => x.Id == id).Select(x => x.Kind).SingleOrDefaultAsync(ct);
+        return await scope.ServiceProvider.GetRequiredService<AppDbContext>().Coursewares.AsNoTracking().Where(x => x.Id == id && x.ConversionStatus == "converting").Select(x => x.Kind).SingleOrDefaultAsync(ct);
+    }
+
+    private async ValueTask<IAsyncDisposable> AcquireConversionLock(Guid id, CancellationToken ct)
+    {
+        while (true)
+        {
+            try { return await locks.Acquire("courseware-conversion:" + id.ToString("N"), ct); }
+            catch (ApiException exception) when (exception.Code == "dependency.unavailable") { await Task.Delay(500, ct); }
+        }
     }
 
     /// <summary>Updates the conversion state. Returns false when the courseware no longer exists (replaced or deleted meanwhile).</summary>

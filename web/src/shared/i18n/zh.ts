@@ -1,7 +1,7 @@
 import { zhSpeech } from './zh.speech'
 export const zh = {
   timetable: { title: '课程表', description: '查看每周课程与上课时间' },
-  center: { title: '班级中心', description: '在这里找到班级活动与工具。', meetingsDescription: '查看班会场次、报名并上交课件。', empty: '暂时没有可用的班级功能。' },
+  center: { title: '工作台', description: '班级活动与常用工具。', meetingsDescription: '查看班会场次、报名并上交课件。', empty: '暂时没有可用的班级功能。' },
   memberIdentity: { title: '成员权限', description: '查看当前账号的权限。', explanation: '权限由账号角色授予，其他插件可以使用这些权限控制操作。', currentPermissions: '当前账号权限', empty: '当前账号没有权限。' },
   common: {
     loading: '加载中…',
@@ -74,7 +74,7 @@ export const zh = {
     back: '回到主页',
     login: '登录',
     start: 'start',
-    startAria: '打开用户控制台',
+    startAria: '打开工作台',
     userMenu: '账户菜单',
     fallbackNote: '当前设备以静态模式显示',
     sceneAria: '由粒子组成的班级名称，可用鼠标扰动',
@@ -97,7 +97,7 @@ export const zh = {
   auth: {
     login: '登录',
     loginTitle: '登录 {{name}}',
-    loginSub: '用你的账号进入控制台',
+    loginSub: '登录后进入班级工作台',
     account: '用户名或邮箱',
     password: '密码',
     submit: '登录',
@@ -123,7 +123,7 @@ export const zh = {
     forbiddenBody: '你的账号没有访问该区域所需的权限。',
   },
   console: {
-    title: '用户控制台',
+    title: '工作台',
     welcome: '你好，{{name}}',
     linkedMember: '班级成员档案',
     notLinked: '尚未关联成员档案，可联系管理员关联。',
