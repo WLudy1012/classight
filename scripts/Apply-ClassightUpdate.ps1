@@ -52,6 +52,18 @@ function Get-StableVersion([string]$VersionText) {
     return [version]$Matches[1]
 }
 
+function Get-ExecutableHash([string]$Path) {
+    $stream = [IO.File]::OpenRead($Path)
+    try {
+        $sha256 = [Security.Cryptography.SHA256]::Create()
+        try {
+            return [BitConverter]::ToString($sha256.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+        }
+        finally { $sha256.Dispose() }
+    }
+    finally { $stream.Dispose() }
+}
+
 function Restore-PreviousExecutable {
     if (-not [IO.File]::Exists($installedExecutable) -and [IO.File]::Exists($backupExecutable)) {
         [IO.File]::Move($backupExecutable, $installedExecutable)
@@ -76,7 +88,7 @@ try {
             throw 'The pending update no longer matches this installation.'
         }
         if ($pending.sha256 -notmatch '\A[0-9a-fA-F]{64}\z' -or
-            (Get-FileHash -LiteralPath $pendingExecutable -Algorithm SHA256).Hash -ne $pending.sha256) {
+            (Get-ExecutableHash $pendingExecutable) -ne $pending.sha256) {
             throw 'The pending update failed SHA-256 verification.'
         }
         if ((Get-StableVersion ([Diagnostics.FileVersionInfo]::GetVersionInfo($pendingExecutable).ProductVersion)) -ne $nextVersion) {
