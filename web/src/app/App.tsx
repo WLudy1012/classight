@@ -16,6 +16,7 @@ const ClassPage = lazy(() => import('@/features/class-info/ClassPage'))
 const WorkspaceShell = lazy(() => import('./WorkspaceShell'))
 const AdminLayout = lazy(() => import('@/features/admin/AdminLayout'))
 const SetupPage = lazy(() => import('@/features/setup/SetupPage'))
+const MeetingDisplayPage = lazy(() => import('@/features/queue/DisplayPage'))
 
 function Loading() {
   return (
@@ -81,6 +82,7 @@ export function App() {
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/class" element={<ClassPage />} />
           <Route path="/setup" element={<SetupPage />} />
+          <Route path="/meetings/display" element={<MeetingDisplayPage />} />
           <Route path="/center/*" element={<RequireAuth><WorkspaceShell><ClassCenter /></WorkspaceShell></RequireAuth>} />
           {getClassCenterPlugins().flatMap((plugin) => plugin.routes.filter((route) => route.legacyPath).map((route) => (
             <Route key={route.legacyPath} path={route.legacyPath} element={<LegacyPluginRoute path={route.path} />} />

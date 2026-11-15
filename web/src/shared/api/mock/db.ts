@@ -22,6 +22,8 @@ import type {
   TimelineEvent,
 } from '../types'
 
+import type { Article } from '@/features/blog/api'
+import type { Message } from '@/features/chat/api'
 import { clearFiles } from './files'
 
 export type L = { zh: string; en: string }
@@ -88,6 +90,9 @@ export interface DbSpeechEntry {
   teamId?: string
   startedAt?: string
   finishedAt?: string
+  reviewStatus?: 'approved' | 'returned'
+  reviewNote?: string
+  displaying?: boolean
   version: number
 }
 export interface DbSpeechTeam {
@@ -97,6 +102,7 @@ export interface DbSpeechTeam {
   leaderId: string
   memberIds: string[]
   joinCode: string
+  assigned?: boolean
   version: number
 }
 /** Metadata only. The file bytes live in an in-memory Map (mock/files.ts) and vanish on reload. */
@@ -126,6 +132,8 @@ export interface Db {
   sessions: DbSession[]
   audit: AuditLog[]
   settings: DbSettings
+  blog?: Article[]
+  chat?: (Message & { clientId: string })[]
   speech: {
     sessions: DbSpeechSession[]
     entries: DbSpeechEntry[]
@@ -137,6 +145,8 @@ export interface Db {
 
 const KEY = 'classight.mock.db.v3'
 export const REFRESH_KEY = 'classight.mock.rt'
+const COMMUNITY_MEMBER: Permission[] = ['blog.read', 'blog.write', 'chat.read', 'chat.send']
+const COMMUNITY_ADMIN: Permission[] = [...COMMUNITY_MEMBER, 'blog.moderate', 'chat.moderate']
 
 export const ALL_PERMISSIONS: Permission[] = [
   'site.settings.read',
@@ -156,6 +166,7 @@ export const ALL_PERMISSIONS: Permission[] = [
   'speech.participate',
   'speech.manage',
   'timetable.manage',
+  ...COMMUNITY_ADMIN,
 ]
 
 const ADMIN_PERMS: Permission[] = [
@@ -172,6 +183,7 @@ const ADMIN_PERMS: Permission[] = [
   'speech.participate',
   'speech.manage',
   'timetable.manage',
+  ...COMMUNITY_ADMIN,
 ]
 
 const id = () => crypto.randomUUID()
@@ -206,7 +218,7 @@ const MEMBER_NAMES: { zh: string; en: string; title?: L }[] = [
 
 function seed(): Db {
   const roles: Role[] = [
-    { id: id(), name: 'Member', description: 'Class member', permissions: ['media.upload', 'speech.participate'], builtIn: true },
+    { id: id(), name: 'Member', description: 'Class member', permissions: ['media.upload', 'speech.participate', ...COMMUNITY_MEMBER], builtIn: true },
     { id: id(), name: 'Admin', description: 'Class administrator', permissions: ADMIN_PERMS, builtIn: true },
     { id: id(), name: 'SuperAdmin', description: 'Full access', permissions: ALL_PERMISSIONS, builtIn: true },
   ]
@@ -489,6 +501,15 @@ export function getDb(): Db {
         localStorage.setItem('classight.mock.timetable.permission.v1', '1')
         persist()
       }
+      if (!localStorage.getItem('classight.mock.community.permissions.v1')) {
+        for (const role of db.roles) {
+          if (!role.builtIn) continue
+          const defaults = role.name === 'Member' ? COMMUNITY_MEMBER : COMMUNITY_ADMIN
+          role.permissions = [...new Set([...role.permissions, ...defaults])]
+        }
+        localStorage.setItem('classight.mock.community.permissions.v1', '1')
+        persist()
+      }
       return db
     }
   } catch {
@@ -496,6 +517,7 @@ export function getDb(): Db {
   }
   db = seed()
   persist()
+  try { localStorage.setItem('classight.mock.community.permissions.v1', '1') } catch { /* storage unavailable */ }
   return db
 }
 
@@ -513,6 +535,7 @@ export function resetDb() {
   persist()
   try {
     localStorage.removeItem(REFRESH_KEY)
+    localStorage.setItem('classight.mock.community.permissions.v1', '1')
   } catch {
     /* noop */
   }

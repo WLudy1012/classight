@@ -6,6 +6,7 @@ import { errorMessage } from '@/shared/i18n'
 import { Badge, Button, toast } from '@/shared/ui'
 import { PageHeader, QueryBoundary } from '../common'
 import { registerAdminModule } from '../registry'
+import { UpdatesPanel } from './UpdatesPanel'
 
 function uptime(s: number) {
   const d = Math.floor(s / 86400)
@@ -38,7 +39,7 @@ function SystemAdmin() {
     <div className="page">
       <PageHeader
         title={t('admin.system.title')}
-        sub={t('admin.system.mockNote')}
+        sub={s?.runtime.startsWith('Mock') ? t('admin.system.mockNote') : undefined}
         actions={
           can(user, 'system.manage') && (
             <Button icon="refresh" loading={clear.isPending} onClick={() => clear.mutate()}>
@@ -79,6 +80,7 @@ function SystemAdmin() {
           </dl>
         )}
       </QueryBoundary>
+      <UpdatesPanel />
     </div>
   )
 }

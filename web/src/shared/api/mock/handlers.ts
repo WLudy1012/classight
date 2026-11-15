@@ -23,6 +23,7 @@ import { registerSetupRoutes } from './setup'
 import { registerSpeechRoutes, validateSpeechSettings } from './speech'
 import { isPluginEnabled, registerPluginRoutes } from './plugin-state'
 import { registerTimetableRoutes } from './timetable'
+import { registerCommunityRoutes } from './community'
 import { ALL_PERMISSIONS, REFRESH_KEY, getDb, newId, persist, type DbMember, type DbTimeline, type DbUser, type L } from './db'
 
 type Lang = 'zh' | 'en'
@@ -943,6 +944,16 @@ route('GET', '/admin/audit-logs/:id', (ctx) => {
   return a
 })
 const startedAt = Date.now()
+route('GET', '/admin/system/updates', ctx => {
+  need(ctx, 'system.read')
+  return { currentVersion: '0.1.0-mock', supported: false, enabled: true, platform: 'unsupported', phase: 'unsupported',
+    latestVersion: null, lastCheckedAt: null, nextCheckAt: null, downloadedBytes: 0, totalBytes: 0,
+    errorCode: null, restartRequired: false, backupAvailable: false }
+})
+route('POST', '/admin/system/updates/check', ctx => {
+  need(ctx, 'system.manage')
+  throw ApiError.from(409, 'updates.unsupported', 'Automatic updates require a daemon release')
+})
 route('GET', '/admin/system/status', (ctx): SystemStatus => {
   need(ctx, 'system.read')
   return {
@@ -966,6 +977,7 @@ const kit = { route, status, currentUser, need, audit, paginate, rolePermissions
 registerSpeechRoutes(kit)
 registerPluginRoutes(kit)
 registerTimetableRoutes(kit)
+registerCommunityRoutes(kit)
 registerSetupRoutes({ ...kit, authResult, openSession: (u) => void openSession(u) })
 
 /* ----------------------------- dispatch ----------------------------- */

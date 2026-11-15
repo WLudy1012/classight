@@ -73,9 +73,9 @@ Classight Windows x64 演示包
 3. 浏览器访问 $browserUrl，使用「账号密码.txt」中的账号登录。
 4. 演示结束后回到服务窗口，按 Ctrl+C 停止。
 
-已包含 .NET 运行时、网站前端、SQLite 数据库和四个内置 DLL 插件。
+已包含 .NET 运行时、网站前端、SQLite 数据库和内置 DLL 插件。
 无需安装 .NET、Node.js、PostgreSQL、MySQL 或 Redis，无需运行安装向导。
-演示内容包括班级资料、成员、时间线、课程表、班会与课件；人机验证保持关闭。
+演示可体验班级资料、成员、时间线、课程表、班会、博客和群聊。人机验证保持关闭。
 管理员可演示插件开关、成员权限和班会管理，学生可体验班会报名及课件预览。
 
 配置文件：config\appsettings.json

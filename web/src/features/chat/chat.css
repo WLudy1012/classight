@@ -1,0 +1,33 @@
+.chat-page { max-width: 960px; }
+.chat-heading { flex-wrap: wrap; gap: 12px; }
+.chat-conversation { margin-top: 20px; border: 1px solid var(--line); border-radius: var(--r-md, 10px); }
+.chat-viewport { height: clamp(240px, 50dvh, 660px); overflow-y: auto; overscroll-behavior: contain; padding: 16px 20px; }
+.chat-viewport:focus-visible { outline-offset: -2px; }
+.chat-lines { margin: 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.chat-viewport:has(.chat-lines) { display: flex; flex-direction: column; }
+.chat-lines { margin-top: auto; }
+.chat-day { display: flex; gap: 12px; align-items: center; padding-bottom: 10px; font-size: 0.8125rem; color: var(--fg-300); }
+.chat-day::before, .chat-day::after { content: ''; flex: 1; border-top: 1px solid var(--line); }
+.chat-entry { display: flex; flex-direction: column; align-items: flex-start; }
+.chat-entry--own { align-items: flex-end; }
+.chat-entry__details, .chat-entry__content { display: flex; align-items: baseline; min-width: 0; max-width: 100%; gap: 8px; }
+.chat-entry__details { color: var(--fg-300); font-size: 0.8125rem; margin-bottom: 4px; }
+.chat-entry__details strong { overflow-wrap: anywhere; }
+.chat-entry__details time { flex-shrink: 0; }
+.chat-entry__content { align-items: flex-start; max-width: min(90%, 68ch); }
+.chat-entry--own .chat-entry__content { flex-direction: row-reverse; }
+.chat-entry__body { margin: 0; padding: 8px 12px; border-radius: var(--r-md, 10px); background: var(--bg-900); white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+.chat-entry--own .chat-entry__body { background: var(--bg-800); }
+.chat-entry__body[data-deleted='true'] { color: var(--fg-300); font-size: 0.8125rem; }
+.chat-entry__content > button { flex-shrink: 0; }
+.chat-skeletons { display: grid; gap: 16px; }
+.chat-status { padding: 6px 14px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.8125rem; }
+.chat-composer { border-top: 1px solid var(--line); padding: 14px 16px; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px 12px; }
+.chat-composer p { margin: 0; grid-column: 1 / -1; }
+.chat-composer .textarea { resize: vertical; max-height: 24vh; }
+
+@media (max-width: 520px) {
+  .chat-viewport { padding-inline: 12px; }
+  .chat-composer { padding: 12px; gap: 6px 8px; }
+  .chat-entry__content { max-width: 97%; }
+}

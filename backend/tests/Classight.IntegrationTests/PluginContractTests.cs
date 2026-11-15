@@ -18,7 +18,7 @@ public sealed class PluginContractTests
     [Fact]
     public void Core_business_assemblies_do_not_reference_optional_plugin_implementations()
     {
-        string[] optional = ["Classight.Captcha", "Classight.Timetable", "Classight.MemberIdentity", "Classight.Speech"];
+        string[] optional = ["Classight.Blog", "Classight.Captcha", "Classight.Chat", "Classight.Timetable", "Classight.MemberIdentity", "Classight.Speech"];
         Assert.DoesNotContain(typeof(IdentityModule).Assembly.GetReferencedAssemblies(), item => optional.Contains(item.Name));
         Assert.DoesNotContain(typeof(ClassModule).Assembly.GetReferencedAssemblies(), item => optional.Contains(item.Name));
     }

@@ -47,8 +47,8 @@ public sealed class DaemonPluginTests
         await using var app = new ApiFactory();
         using var admin = app.As(await Kit.Login(app.Client(), "admin", "IntegrationAdmin123!"));
         var runtime = app.Services.GetRequiredService<PluginRuntime>();
-        Assert.Equal(new[] { "captcha", "meetings", "member-identity", "timetable" }, runtime.Manifests.Select(plugin => plugin.Id).Order().ToArray());
-        Assert.Equal(4, runtime.Status.Count(status => status.State == "active"));
+        Assert.Equal(new[] { "blog", "captcha", "chat", "meetings", "member-identity", "timetable" }, runtime.Manifests.Select(plugin => plugin.Id).Order().ToArray());
+        Assert.Equal(6, runtime.Status.Count(status => status.State == "active"));
         var session = await Kit.OpenSession(admin);
         await using (var scope = app.Services.CreateAsyncScope())
         {

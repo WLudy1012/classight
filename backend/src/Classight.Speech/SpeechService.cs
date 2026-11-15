@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Classight.Speech;
 
-public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings, ICurrentUser current, IClock clock, IEventBus events, IDistributedLock locks, CoursewareStore store, IPresentationConverter converter)
+public sealed partial class SpeechService(AppDbContext db, ISiteSettingsReader settings, ICurrentUser current, IClock clock, IEventBus events, IDistributedLock locks, CoursewareStore store, IPresentationConverter converter)
 {
     private const string CodeAlphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     private static readonly string[] Statuses = [SpeechStatus.Draft, SpeechStatus.Open, SpeechStatus.Running, SpeechStatus.Closed];
@@ -19,6 +19,7 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
     private static ApiException AlreadySignedUp() => new(409, "speech.already_signed_up", "你在本场次已有排队条目");
     private static ApiException Closed() => new(403, "speech.closed", "本场次未开放报名或已结束");
     private static ApiException NotLeader() => new(403, "speech.not_leader", "需要队长权限");
+    private static bool Assigned(SpeechTeam team) => team.JoinCode.StartsWith('!');
 
     // ---------------------------------------------------------------- queries
 
@@ -41,16 +42,23 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         var (page, size) = Input.Paging(request); var total = await query.CountAsync(ct);
         var items = await QuerySort.Apply(query, request, "-date", SessionSort).Skip((page - 1) * size).Take(size).ToListAsync(ct);
         var ids = items.Select(x => x.Id).ToList();
-        var counts = await db.SpeechEntries.AsNoTracking().Where(x => ids.Contains(x.SessionId)).GroupBy(x => x.SessionId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count, ct);
-        var speaking = await db.SpeechEntries.AsNoTracking().Where(x => ids.Contains(x.SessionId) && x.Status == SpeechStatus.Speaking).Select(x => new { x.SessionId, x.Id }).ToListAsync(ct);
+        var visible = VisibleEntries().Where(x => ids.Contains(x.SessionId));
+        var counts = await visible.GroupBy(x => x.SessionId).Select(g => new { g.Key, Count = g.Count() }).ToDictionaryAsync(x => x.Key, x => x.Count, ct);
+        var speaking = await visible.Where(x => x.Status == SpeechStatus.Speaking).Select(x => new { x.SessionId, x.Id }).ToListAsync(ct);
         return new(items.Select(x => SessionView(x, counts.GetValueOrDefault(x.Id), speaking.FirstOrDefault(s => s.SessionId == x.Id)?.Id)).ToArray(), total, page, size);
     }
 
     public async Task<SpeechSessionDetailView> GetSession(Guid id, CancellationToken ct)
     {
         var session = await LoadSession(id, false, ct);
-        var entries = await db.SpeechEntries.AsNoTracking().Where(x => x.SessionId == id).OrderBy(x => x.Position).ThenBy(x => x.CreatedAt).ToListAsync(ct);
-        var teams = await db.SpeechTeams.AsNoTracking().Where(x => x.SessionId == id).OrderBy(x => x.CreatedAt).ToListAsync(ct);
+        var entries = await VisibleEntries().Where(x => x.SessionId == id).OrderBy(x => x.Position).ThenBy(x => x.CreatedAt).ToListAsync(ct);
+        var teamQuery = db.SpeechTeams.AsNoTracking().Where(x => x.SessionId == id);
+        if (!Manage)
+        {
+            var me = Me;
+            teamQuery = teamQuery.Where(x => db.SpeechTeamMembers.Any(m => m.TeamId == x.Id && m.UserId == me));
+        }
+        var teams = await teamQuery.OrderBy(x => x.CreatedAt).ToListAsync(ct);
         var lookup = await Lookup.Build(db, entries, teams, ct);
         var entryViews = entries.Select(x => EntryView(x, lookup)).ToArray();
         var teamViews = teams.Select(x => TeamView(x, lookup, entries.FirstOrDefault(e => e.TeamId == x.Id)?.Id)).ToArray();
@@ -60,10 +68,12 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         return new(summary.Id, summary.Title, summary.Date, summary.Description, summary.SlotMinutes, summary.AllowTeams, summary.MaxTeamSize, summary.SubmissionsOpen, summary.Status, summary.EntryCount, summary.CurrentEntryId, summary.Version, summary.CreatedAt, entryViews, teamViews, mine, myTeam);
     }
 
-    public async Task<SpeechEntryView> GetEntryView(Guid id, CancellationToken ct)
+    private IQueryable<SpeechEntry> VisibleEntries()
     {
-        var entry = await db.SpeechEntries.AsNoTracking().SingleAsync(x => x.Id == id, ct);
-        return (await EntryViews([entry], ct))[0];
+        var entries = db.SpeechEntries.AsNoTracking();
+        if (Manage) return entries;
+        var me = Me;
+        return entries.Where(e => e.OwnerId == me || db.SpeechTeamMembers.Any(m => m.TeamId == e.TeamId && m.UserId == me));
     }
 
     // ---------------------------------------------------------------- participant: entries
@@ -118,10 +128,13 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         await using var _ = await locks.Acquire(LockKey(sessionId), ct);
         var entry = await db.SpeechEntries.SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw ApiException.NotFound();
         var session = await LoadSession(entry.SessionId, false, ct);
-        if (!Manage) { RequireParticipant(); if (entry.OwnerId != Me) throw ApiException.Forbidden(); EnsureActive(session); if (entry.Status != SpeechStatus.Queued) throw ApiException.Conflict("条目已开始或结束，不可修改"); }
+        if (!Manage) { RequireParticipant(); if (entry.OwnerId != Me) throw ApiException.Forbidden(); EnsureOpenForSignup(session); }
+        if (entry.Status != SpeechStatus.Queued) throw ApiException.Conflict("条目已开始或结束，不可修改");
         Input.Version(http, body.Version, entry.Version);
         var before = new { entry.Topic };
-        entry.Topic = topic; await db.SaveChangesAsync(ct);
+        if (entry.Topic != topic) await EntryReviews.Set(db, entry, new(), ct);
+        entry.Topic = topic;
+        await db.SaveChangesAsync(ct);
         await events.Publish(new("speech.entry.updated", "SpeechEntry", entry.Id.ToString(), before, new { entry.Topic }), ct);
         return (await EntryViews([entry], ct))[0];
     }
@@ -132,7 +145,7 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         await using var _ = await locks.Acquire(LockKey(sessionId), ct);
         var entry = await db.SpeechEntries.SingleOrDefaultAsync(x => x.Id == id, ct) ?? throw ApiException.NotFound();
         var session = await LoadSession(entry.SessionId, false, ct);
-        if (!Manage) { RequireParticipant(); if (entry.OwnerId != Me) throw ApiException.Forbidden(); EnsureActive(session); if (entry.Status != SpeechStatus.Queued) throw ApiException.Conflict("条目已开始或结束，不可取消"); }
+        if (!Manage) { RequireParticipant(); if (entry.OwnerId != Me) throw ApiException.Forbidden(); EnsureOpenForSignup(session); if (entry.Status != SpeechStatus.Queued) throw ApiException.Conflict("条目已开始或结束，不可取消"); }
         await RemoveEntry(entry, ct);
         await events.Publish(new("speech.entry.deleted", "SpeechEntry", entry.Id.ToString(), new { entry.SessionId, entry.OwnerId, entry.TeamId, entry.Topic }, null), ct);
     }
@@ -140,6 +153,7 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
     private async Task RemoveEntry(SpeechEntry entry, CancellationToken ct)
     {
         var coursewares = await db.Coursewares.Where(x => x.EntryId == entry.Id).ToListAsync(ct);
+        await EntryReviews.Remove(db, [entry.Id], ct);
         db.Coursewares.RemoveRange(coursewares); db.SpeechEntries.Remove(entry);
         await db.SaveChangesAsync(ct);
         foreach (var item in coursewares) store.Delete(item.Id);
@@ -180,6 +194,7 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         var sessionId = await db.SpeechTeams.AsNoTracking().Where(x => x.JoinCode == code).Select(x => (Guid?)x.SessionId).SingleOrDefaultAsync(ct) ?? throw new ApiException(404, "resource.not_found", "加入码无效");
         await using var _ = await locks.Acquire(LockKey(sessionId), ct);
         var team = await db.SpeechTeams.SingleOrDefaultAsync(x => x.JoinCode == code, ct) ?? throw new ApiException(404, "resource.not_found", "加入码无效");
+        if (Assigned(team)) throw ApiException.NotFound();
         var session = await LoadSession(team.SessionId, false, ct);
         if (!session.AllowTeams) throw new ApiException(403, "speech.teams_disabled", "本场次不允许组队");
         EnsureOpenForSignup(session);
@@ -190,6 +205,8 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         if (existing is not null) throw new ApiException(409, "speech.team_exists", "你已在本场次的另一支队伍里");
         if (await db.SpeechTeamMembers.CountAsync(x => x.TeamId == team.Id, ct) >= session.MaxTeamSize) throw new ApiException(409, "speech.team_full", "队伍已满");
         db.SpeechTeamMembers.Add(new SpeechTeamMember { SessionId = session.Id, TeamId = team.Id, UserId = me, CreatedAt = clock.UtcNow });
+        db.Entry(team).Property(x => x.Version).IsModified = true;
+        await ResetTeamReview(team.Id, ct);
         await db.SaveChangesAsync(ct);
         await events.Publish(new("speech.team.joined", "SpeechTeam", team.Id.ToString(), null, new { team.SessionId, userId = me }), ct);
         return await TeamViewOf(team, ct);
@@ -207,9 +224,12 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         {
             RequireParticipant();
             if (!self && team.LeaderId != Me) throw NotLeader();
-            EnsureActive(session);
+            if (Assigned(team)) throw ApiException.Forbidden();
+            EnsureOpenForSignup(session);
         }
         if (userId == team.LeaderId) throw ApiException.Conflict("队长不能退队，请先解散队伍");
+        await ResetTeamReview(team.Id, ct);
+        db.Entry(team).Property(x => x.Version).IsModified = true;
         db.SpeechTeamMembers.Remove(member); await db.SaveChangesAsync(ct);
         await events.Publish(new(self ? "speech.team.left" : "speech.team.kicked", "SpeechTeam", team.Id.ToString(), new { team.SessionId, userId }, null), ct);
     }
@@ -225,21 +245,37 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         {
             RequireParticipant();
             if (team.LeaderId != Me) throw NotLeader();
-            EnsureActive(session);
+            if (Assigned(team)) throw ApiException.Forbidden();
+            EnsureOpenForSignup(session);
             if (entry is not null && entry.Status != SpeechStatus.Queued) throw ApiException.Conflict("队伍条目已开始或结束，不可解散");
         }
-        if (entry is not null) await RemoveEntry(entry, ct);
+        if (entry is not null && Assigned(team))
+        {
+            if (entry.Status != SpeechStatus.Queued) throw ApiException.Conflict("发言开始后不能解除分组");
+            entry.TeamId = null;
+            await EntryReviews.Set(db, entry, new(), ct);
+        }
+        else if (entry is not null) await RemoveEntry(entry, ct);
         db.SpeechTeamMembers.RemoveRange(await db.SpeechTeamMembers.Where(x => x.TeamId == teamId).ToListAsync(ct));
         db.SpeechTeams.Remove(team); await db.SaveChangesAsync(ct);
         await events.Publish(new("speech.team.disbanded", "SpeechTeam", team.Id.ToString(), new { team.SessionId, team.Name, team.LeaderId }, null), ct);
     }
 
-    private async Task<string> NewJoinCode(CancellationToken ct)
+    private async Task ResetTeamReview(Guid teamId, CancellationToken ct)
+    {
+        var entry = await db.SpeechEntries.SingleOrDefaultAsync(x => x.TeamId == teamId, ct);
+        if (entry is null) return;
+        if (entry.Status != SpeechStatus.Queued) throw ApiException.Conflict("发言开始后不能调整小组成员");
+        await EntryReviews.Set(db, entry, new(), ct);
+    }
+
+    private async Task<string> NewJoinCode(CancellationToken ct, string prefix = "")
     {
         for (var attempt = 0; attempt < 20; attempt++)
         {
             var code = string.Create(6, 0, (span, _) => { for (var i = 0; i < span.Length; i++) span[i] = CodeAlphabet[RandomNumberGenerator.GetInt32(CodeAlphabet.Length)]; });
-            if (!await db.SpeechTeams.AnyAsync(x => x.JoinCode == code, ct)) return code;
+            var candidate = prefix + code;
+            if (!await db.SpeechTeams.AnyAsync(x => x.JoinCode == candidate, ct)) return candidate;
         }
         throw new ApiException(503, "dependency.unavailable", "无法生成加入码，请重试");
     }
@@ -292,6 +328,8 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         await using var _ = await locks.Acquire(LockKey(id), ct);
         var session = await LoadSession(id, true, ct);
         if (http.Request.Headers.IfMatch.Count > 0) Input.Version(http, null, session.Version);
+        var entries = await db.SpeechEntries.AsNoTracking().Where(x => x.SessionId == id).Select(x => x.Id).ToListAsync(ct);
+        await EntryReviews.Remove(db, entries, ct);
         session.Deleted = true; await db.SaveChangesAsync(ct);
         await events.Publish(new("speech.session.deleted", "MeetingSession", id.ToString(), SessionView(session, 0, null), null), ct);
     }
@@ -304,10 +342,15 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         var session = await LoadSession(id, true, ct);
         if (!Transitions.Contains((session.Status, target))) throw ApiException.Conflict($"不允许从 {session.Status} 切换到 {target}");
         var before = session.Status;
-        if (target == SpeechStatus.Closed)
+        if (target is SpeechStatus.Closed or SpeechStatus.Open)
         {
             var speaking = await db.SpeechEntries.SingleOrDefaultAsync(x => x.SessionId == id && x.Status == SpeechStatus.Speaking, ct);
-            if (speaking is not null) { speaking.Status = SpeechStatus.Done; speaking.FinishedAt = clock.UtcNow; }
+            if (speaking is not null)
+            {
+                speaking.Status = SpeechStatus.Done;
+                speaking.FinishedAt = clock.UtcNow;
+                await StopDisplay(speaking, ct);
+            }
         }
         session.Status = target; await db.SaveChangesAsync(ct);
         await events.Publish(new("speech.session.status", "MeetingSession", id.ToString(), new { status = before }, new { status = target }), ct);
@@ -347,6 +390,7 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
             case "start":
                 if (session.Status is SpeechStatus.Draft or SpeechStatus.Closed) throw Closed();
                 if (entry.Status is not (SpeechStatus.Queued or SpeechStatus.Skipped)) throw ApiException.Conflict("只有待演讲或已跳过的条目可以开始");
+                if ((await EntryReviews.ReadOne(db, entry.Id, ct)).Status != "approved") throw ReviewRequired();
                 if (await db.SpeechEntries.AnyAsync(x => x.SessionId == session.Id && x.Status == SpeechStatus.Speaking && x.Id != entry.Id, ct)) throw new ApiException(409, "speech.speaking_exists", "已有正在演讲的条目");
                 entry.Status = SpeechStatus.Speaking; entry.StartedAt = now; entry.FinishedAt = null;
                 if (session.Status == SpeechStatus.Open) session.Status = SpeechStatus.Running;
@@ -354,11 +398,13 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
             case "finish":
                 if (entry.Status != SpeechStatus.Speaking) throw ApiException.Conflict("只有正在演讲的条目可以完成");
                 entry.Status = SpeechStatus.Done; entry.FinishedAt = now;
+                await StopDisplay(entry, ct);
                 break;
             default:
                 if (entry.Status is not (SpeechStatus.Queued or SpeechStatus.Speaking)) throw ApiException.Conflict("只有待演讲或正在演讲的条目可以跳过");
                 if (entry.Status == SpeechStatus.Speaking) entry.FinishedAt = now;
                 entry.Status = SpeechStatus.Skipped;
+                await StopDisplay(entry, ct);
                 break;
         }
         await db.SaveChangesAsync(ct);
@@ -371,7 +417,6 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
     public static string LockKey(Guid sessionId) => "speech:" + sessionId.ToString("N");
     private void RequireParticipant() { if (!current.Can("speech.participate")) throw ApiException.Forbidden(); }
     private static void EnsureOpenForSignup(MeetingSession session) { if (session.Status != SpeechStatus.Open || !session.SubmissionsOpen) throw Closed(); }
-    private static void EnsureActive(MeetingSession session) { if (session.Status is not (SpeechStatus.Open or SpeechStatus.Running)) throw Closed(); }
 
     private static void ValidateLimits(MeetingSession session)
     {
@@ -420,13 +465,16 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
             mine |= members.Any(x => x.UserId == me);
         }
         var courseware = lookup.Coursewares.TryGetValue(entry.Id, out var cw) ? CoursewareMapper.View(cw, lookup.Person(cw.UploaderId)) : null;
-        return new(entry.Id, entry.SessionId, entry.Position, entry.Topic, entry.Status, lookup.Person(entry.OwnerId), team, courseware, entry.StartedAt, entry.FinishedAt, mine, entry.Version);
+        var review = lookup.Reviews.GetValueOrDefault(entry.Id) ?? new();
+        return new(entry.Id, entry.SessionId, Manage ? entry.Position : 1, entry.Topic, entry.Status, lookup.Person(entry.OwnerId), team, courseware,
+            entry.StartedAt, entry.FinishedAt, mine, entry.Version, review.Status, review.Note, review.DisplayId is not null);
     }
 
     private SpeechTeamView TeamView(SpeechTeam team, Lookup lookup, Guid? entryId)
     {
         var members = lookup.MemberViews(team); var mine = members.Any(x => x.UserId == current.Id);
-        return new(team.Id, team.SessionId, team.Name, team.LeaderId, members, entryId, mine || Manage ? team.JoinCode : null, mine, team.Version);
+        var assigned = Assigned(team);
+        return new(team.Id, team.SessionId, team.Name, team.LeaderId, members, entryId, !assigned && (mine || Manage) ? team.JoinCode : null, mine, team.Version, assigned);
     }
 
     private sealed class Lookup
@@ -435,6 +483,7 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
         public Dictionary<Guid, SpeechTeam> Teams { get; init; } = [];
         public ILookup<Guid, SpeechTeamMember> Members { get; init; } = Array.Empty<SpeechTeamMember>().ToLookup(x => x.TeamId);
         public Dictionary<Guid, Courseware> Coursewares { get; init; } = [];
+        public Dictionary<Guid, EntryReview> Reviews { get; init; } = [];
 
         public static async Task<Lookup> Build(AppDbContext db, IReadOnlyCollection<SpeechEntry> entries, IReadOnlyCollection<SpeechTeam> extraTeams, CancellationToken ct)
         {
@@ -446,7 +495,7 @@ public sealed class SpeechService(AppDbContext db, ISiteSettingsReader settings,
             var coursewares = (await db.Coursewares.AsNoTracking().Where(x => entryIds.Contains(x.EntryId)).ToListAsync(ct)).ToDictionary(x => x.EntryId);
             var userIds = entries.Select(x => x.OwnerId).Concat(members.SelectMany(g => g).Select(x => x.UserId)).Concat(coursewares.Values.Select(x => x.UploaderId)).Distinct().ToList();
             var users = (await db.Users.AsNoTracking().Where(x => userIds.Contains(x.Id)).ToListAsync(ct)).ToDictionary(x => x.Id);
-            return new() { Users = users, Teams = teams, Members = members, Coursewares = coursewares };
+            return new() { Users = users, Teams = teams, Members = members, Coursewares = coursewares, Reviews = await EntryReviews.Read(db, entryIds, ct) };
         }
         public PersonRef Person(Guid id) => Users.TryGetValue(id, out var user) ? new(user.Id, user.DisplayName, Avatar(user)) : new(id, "已删除用户", null);
         public IReadOnlyList<TeamMemberView> MemberViews(SpeechTeam team) =>

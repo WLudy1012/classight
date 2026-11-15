@@ -196,9 +196,8 @@ if (@($invites | Where-Object code -eq 'CLASSIGHT-DEMO-2026').Count -eq 0) {
     $null = Invoke-DemoApi POST '/admin/invites' @{ code = 'CLASSIGHT-DEMO-2026'; role = 'Member'; maxUses = 100 }
 }
 
-$ticket = Invoke-DemoApi POST "/speech/courseware/$($courseware.id)/preview-ticket"
-$preview = Invoke-WebRequest -Uri "$BaseUrl$($ticket.url)" -TimeoutSec 15
-if ($preview.StatusCode -ne 200 -or $preview.Content -notmatch '我的一周学习计划') { throw 'Demo courseware preview verification failed.' }
+$preview = Invoke-WebRequest -Uri "$BaseUrl/api/v1/speech/courseware/$($courseware.id)/preview" -Headers @{ Authorization = "Bearer $script:AdminToken" } -TimeoutSec 15
+if ($preview.StatusCode -ne 200 -or $preview.RawContentLength -ne $courseware.size) { throw 'Demo courseware preview verification failed.' }
 $memberPermissions = Invoke-DemoApi GET '/member-identity/permissions' -Token $studentLogin.accessToken
 if ('speech.participate' -notin $memberPermissions.permissions) { throw 'Student permission verification failed.' }
 $null = Invoke-DemoApi GET '/auth/me' -Token $teacherLogin.accessToken

@@ -24,6 +24,11 @@ using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using StackExchange.Redis;
 
+if (args.FirstOrDefault() == "--apply-update")
+{
+    Environment.ExitCode = await WindowsUpdateInstaller.RunAsync(args);
+    return;
+}
 var embeddedSettings = typeof(Program).Assembly.GetManifestResourceStream("Classight.DefaultSettings.json");
 var standalone = embeddedSettings is not null;
 var configDirectory = Path.Combine(AppContext.BaseDirectory, "config");
@@ -56,7 +61,7 @@ if (standalone)
         {
             using var file = new FileStream(mainConfig, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
             using var writer = new StreamWriter(file, new UTF8Encoding(false));
-            writer.WriteLine("{\n  \"Urls\": \"http://0.0.0.0:5080\"\n}");
+            writer.WriteLine("{\n  \"Urls\": \"http://0.0.0.0:5080\",\n  \"Updates\": {\n    \"Enabled\": true,\n    \"CheckIntervalMinutes\": 360,\n    \"RetryIntervalMinutes\": 15,\n    \"DownloadTimeoutMinutes\": 10\n  }\n}");
         }
         catch (IOException) when (File.Exists(mainConfig)) { }
     }
@@ -76,6 +81,7 @@ if (embeddedSettings is not null) builder.Configuration.Sources.Insert(0, new Js
 if (standalone) builder.Configuration.AddJsonFile(Path.Combine(configDirectory, "appsettings.json"), optional: false);
 if (!builder.Environment.IsEnvironment("Testing")) builder.Configuration.AddJsonFile(standalone ? Path.Combine(configDirectory, "appsettings.Local.json") : "appsettings.Local.json", optional: true);
 builder.Configuration.AddEnvironmentVariables();
+builder.Configuration["System:Version"] = ReleaseVersion.Current;
 if (standalone)
 {
     if (string.IsNullOrWhiteSpace(builder.Configuration["Setup:LocalConfigPath"])) builder.Configuration["Setup:LocalConfigPath"] = Path.Combine(configDirectory, "appsettings.Local.json");
@@ -99,6 +105,7 @@ builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.C
 builder.Services.Configure<RouteHandlerOptions>(options => options.ThrowOnBadRequest = true);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton(new UpdateState(builder.Configuration, standalone));
 if (standalone)
 {
     builder.Services.AddHttpClient(GitHubReleaseSource.ClientName, client =>
@@ -257,6 +264,7 @@ foreach (var module in modules) module.MapEndpoints(app);
 app.MapGet("/api/v1/plugins/catalog", (PluginRuntime plugins) => plugins.Manifests).RequireAuthorization();
 app.MapGet("/api/v1/admin/plugins/runtime", (PluginRuntime plugins) => plugins.Status).RequireAuthorization("site.settings.read");
 SetupEndpoints.Map(app);
+UpdateEndpoints.Map(app);
 app.MapOpenApi().RequireAuthorization("system.read");
 async Task Fallback(HttpContext http)
 {

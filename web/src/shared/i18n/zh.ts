@@ -1,5 +1,7 @@
 import { zhSpeech } from './zh.speech'
+import { communityZh } from './community'
 export const zh = {
+  ...communityZh,
   timetable: { title: '课程表', description: '查看每周课程与上课时间' },
   center: { title: '工作台', description: '班级活动与常用工具。', meetingsDescription: '查看班会场次、报名并上交课件。', empty: '暂时没有可用的班级功能。' },
   memberIdentity: { title: '成员权限', description: '查看当前账号的权限。', explanation: '权限由账号角色授予，其他插件可以使用这些权限控制操作。', currentPermissions: '当前账号权限', empty: '当前账号没有权限。' },
@@ -34,6 +36,9 @@ export const zh = {
     synthetic: '演示数据',
   },
   errors: {
+    'updates.unsupported': '当前运行方式不支持自动更新，请使用 daemon 发布版',
+    'updates.disabled': '自动更新已在配置文件中关闭',
+    'updates.busy': '更新正在进行或等待重启，请稍后再试',
     'captcha.invalid': '人机验证未通过，请重新验证',
     'captcha.unavailable': '人机验证暂时不可用，请稍后重试',
     'validation.failed': '填写的内容有误，请检查后重试',

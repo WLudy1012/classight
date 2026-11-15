@@ -4,6 +4,7 @@ import type {
   AdminUser,
   AuditLog,
   AuthResult,
+  AssignedTeamInput,
   Capabilities,
   Courseware,
   DatabaseInput,
@@ -18,6 +19,7 @@ import type {
   PageQuery,
   Permission,
   PermissionGroup,
+  PersonRef,
   RefreshResult,
   RegisterRequest,
   PreviewTicket,
@@ -36,6 +38,7 @@ import type {
   SpeechSessionStatus,
   SpeechTeam,
   SystemStatus,
+  UpdateStatus,
   TimelineEvent,
   UserSelf,
   Uuid,
@@ -138,6 +141,8 @@ export const adminApi = {
     get<Page<AuditLog>>('/admin/audit-logs', q as Q),
   auditLog: (id: Uuid) => get<AuditLog>(`/admin/audit-logs/${id}`),
   systemStatus: () => get<SystemStatus>('/admin/system/status'),
+  updateStatus: () => get<UpdateStatus>('/admin/system/updates'),
+  checkUpdate: () => post<UpdateStatus>('/admin/system/updates/check'),
   clearCache: () => post<void>('/admin/system/cache/clear'),
 }
 
@@ -158,7 +163,7 @@ export const speechApi = {
     uploadWithProgress<Courseware>(`/speech/entries/${entryId}/courseware`, file, onProgress, signal),
   courseware: (id: Uuid) => get<Courseware>(`/speech/courseware/${id}`),
   downloadCourseware: (id: Uuid) => getBlob(`/speech/courseware/${id}/download`),
-  previewTicket: (id: Uuid) => post<PreviewTicket>(`/speech/courseware/${id}/preview-ticket`),
+  previewCourseware: (id: Uuid, signal?: AbortSignal) => getBlob(`/speech/courseware/${id}/preview`, signal),
   deleteCourseware: (id: Uuid) => del(`/speech/courseware/${id}`),
 
   // speech.manage
@@ -170,6 +175,13 @@ export const speechApi = {
   setStatus: (id: Uuid, status: SpeechSessionStatus) => post<SpeechSession>(`/admin/speech/sessions/${id}/status`, { status }),
   setOrder: (id: Uuid, entryIds: Uuid[]) => put<SpeechSessionDetail>(`/admin/speech/sessions/${id}/order`, { entryIds }),
   startEntry: (id: Uuid) => post<SpeechEntry>(`/admin/speech/entries/${id}/start`),
+  reviewEntry: (id: Uuid, body: { status: 'approved' | 'returned'; note?: string; version: number }) => put<SpeechEntry>(`/admin/speech/entries/${id}/review`, body),
+  startDisplay: (id: Uuid) => post<PreviewTicket>(`/admin/speech/courseware/${id}/display`),
+  stopDisplay: (id: Uuid) => del(`/admin/speech/entries/${id}/display`),
+  groupCandidates: (id: Uuid, query: PageQuery) => get<Page<PersonRef>>(`/admin/speech/sessions/${id}/group-candidates`, query as Q),
+  assignTeam: (id: Uuid, body: AssignedTeamInput, teamId?: Uuid) => teamId
+    ? put<SpeechTeam>(`/admin/speech/sessions/${id}/teams/${teamId}`, body)
+    : post<SpeechTeam>(`/admin/speech/sessions/${id}/teams`, body),
   finishEntry: (id: Uuid) => post<SpeechEntry>(`/admin/speech/entries/${id}/finish`),
   skipEntry: (id: Uuid) => post<SpeechEntry>(`/admin/speech/entries/${id}/skip`),
   signUpFor: (sessionId: Uuid, b: { topic: string; ownerId: Uuid; teamId?: Uuid }) =>

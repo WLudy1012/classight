@@ -11,6 +11,8 @@
     <ProjectReference Include="../Classight.Speech/Classight.Speech.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
     <ProjectReference Include="../Classight.Captcha/Classight.Captcha.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
     <ProjectReference Include="../Classight.Timetable/Classight.Timetable.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
+    <ProjectReference Include="../Classight.Blog/Classight.Blog.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
+    <ProjectReference Include="../Classight.Chat/Classight.Chat.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
     <ProjectReference Include="../Classight.MemberIdentity/Classight.MemberIdentity.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0-rc.2.26504.105" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-rc.2.26504.105" />
@@ -21,6 +23,8 @@
     <EmbeddedResource Include="../Classight.Speech/bin/$(Configuration)/$(TargetFramework)/Classight.Speech.dll" LogicalName="Classight.BuiltinPlugins.Classight.Speech.dll" />
     <EmbeddedResource Include="../Classight.Captcha/bin/$(Configuration)/$(TargetFramework)/Classight.Captcha.dll" LogicalName="Classight.BuiltinPlugins.Classight.Captcha.dll" />
     <EmbeddedResource Include="../Classight.Timetable/bin/$(Configuration)/$(TargetFramework)/Classight.Timetable.dll" LogicalName="Classight.BuiltinPlugins.Classight.Timetable.dll" />
+    <EmbeddedResource Include="../Classight.Blog/bin/$(Configuration)/$(TargetFramework)/Classight.Blog.dll" LogicalName="Classight.BuiltinPlugins.Classight.Blog.dll" />
+    <EmbeddedResource Include="../Classight.Chat/bin/$(Configuration)/$(TargetFramework)/Classight.Chat.dll" LogicalName="Classight.BuiltinPlugins.Classight.Chat.dll" />
     <EmbeddedResource Include="../Classight.MemberIdentity/bin/$(Configuration)/$(TargetFramework)/Classight.MemberIdentity.dll" LogicalName="Classight.BuiltinPlugins.Classight.MemberIdentity.dll" />
   </ItemGroup>
   <ItemGroup Condition="'$(ClassightStandalone)' == 'true'">

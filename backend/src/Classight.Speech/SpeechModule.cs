@@ -13,11 +13,11 @@ namespace Classight.Speech;
 public sealed class SpeechModule : IPluginModule
 {
     public string Name => "Speech";
-    public PluginManifest Manifest => new("meetings", "Class meetings", "Sessions, sign-ups and courseware", "1.0.0", WorkspacePath: "meetings", Icon: "mic");
+    public PluginManifest Manifest => new("meetings", "Class meetings", "Submission review, assigned groups and live presentations", "1.1.0", WorkspacePath: "meetings", Icon: "mic");
     public IEnumerable<PermissionDefinition> DeclarePermissions() => new[]
     {
         new PermissionDefinition("speech.participate", Name, "报名排队、组队、上交课件"),
-        new PermissionDefinition("speech.manage", Name, "管理班会场次、调序、控制状态、代为报名、查看全部课件")
+        new PermissionDefinition("speech.manage", Name, "管理场次、审核报名、指定小组及对外展示")
     };
     public void AddServices(IServiceCollection services, IConfiguration configuration)
     {
@@ -48,12 +48,12 @@ public sealed class SpeechModule : IPluginModule
             var view = await service.Upload(id, http, ct); return Results.Created($"/api/v1/speech/courseware/{view.Id}", view);
         }).Accepts<IFormFile>("multipart/form-data").DisableAntiforgery();
         speech.MapGet("/courseware/{id:guid}", (Guid id, [FromServices] CoursewareService service, CancellationToken ct) => service.Get(id, ct));
-        speech.MapGet("/courseware/{id:guid}/download", (Guid id, [FromServices] CoursewareService service, CancellationToken ct) => service.Download(id, ct));
-        speech.MapPost("/courseware/{id:guid}/preview-ticket", (Guid id, [FromServices] CoursewareService service, CancellationToken ct) => service.Ticket(id, ct));
+        speech.MapGet("/courseware/{id:guid}/download", (Guid id, [FromServices] CoursewareService service, CancellationToken ct) => service.Download(id, ct)).RequireAuthorization("speech.manage");
+        speech.MapGet("/courseware/{id:guid}/preview", (Guid id, [FromServices] CoursewareService service, CancellationToken ct) => service.InternalPreview(id, ct));
         speech.MapDelete("/courseware/{id:guid}", async (Guid id, [FromServices] CoursewareService service, CancellationToken ct) => { await service.Delete(id, ct); return Results.NoContent(); });
 
-        // Anonymous: the signed token in the path is the credential. Responses override the global no-store header.
         var preview = endpoints.MapGroup("/api/v1/speech/preview/{token}").WithTags("Speech Preview").AllowAnonymous();
+        preview.MapGet("/status", (string token, [FromServices] CoursewareService service, CancellationToken ct) => service.DisplayStatus(token, ct));
         preview.MapGet("/file", (string token, [FromServices] CoursewareService service, HttpContext http, CancellationToken ct) => service.PreviewFile(token, http, ct));
         preview.MapGet("/site/{**path}", (string token, string? path, [FromServices] CoursewareService service, HttpContext http, CancellationToken ct) => service.PreviewSite(token, path, http, ct));
 
@@ -70,6 +70,12 @@ public sealed class SpeechModule : IPluginModule
         admin.MapPost("/entries/{id:guid}/start", (Guid id, [FromServices] SpeechService service, CancellationToken ct) => service.Start(id, ct));
         admin.MapPost("/entries/{id:guid}/finish", (Guid id, [FromServices] SpeechService service, CancellationToken ct) => service.Finish(id, ct));
         admin.MapPost("/entries/{id:guid}/skip", (Guid id, [FromServices] SpeechService service, CancellationToken ct) => service.Skip(id, ct));
+        admin.MapPut("/entries/{id:guid}/review", (Guid id, [FromBody] EntryReviewRequest body, [FromServices] SpeechService service, HttpContext http, CancellationToken ct) => service.Review(id, body, http, ct));
+        admin.MapPost("/courseware/{id:guid}/display", (Guid id, [FromServices] CoursewareService service, CancellationToken ct) => service.StartDisplay(id, ct));
+        admin.MapDelete("/entries/{id:guid}/display", async (Guid id, [FromServices] CoursewareService service, CancellationToken ct) => { await service.StopDisplay(id, ct); return Results.NoContent(); });
+        admin.MapGet("/sessions/{id:guid}/group-candidates", (Guid id, [FromServices] SpeechService service, HttpContext http, CancellationToken ct) => service.GroupCandidates(id, http.Request, ct));
+        admin.MapPost("/sessions/{id:guid}/teams", (Guid id, [FromBody] AssignedTeamRequest body, [FromServices] SpeechService service, HttpContext http, CancellationToken ct) => service.AssignTeam(id, null, body, http, ct));
+        admin.MapPut("/sessions/{id:guid}/teams/{teamId:guid}", (Guid id, Guid teamId, [FromBody] AssignedTeamRequest body, [FromServices] SpeechService service, HttpContext http, CancellationToken ct) => service.AssignTeam(id, teamId, body, http, ct));
         admin.MapPost("/sessions/{id:guid}/entries", async (Guid id, [FromBody] AdminEntryCreateRequest body, [FromServices] SpeechService service, CancellationToken ct) =>
             Results.Created($"/api/v1/speech/sessions/{id}", await service.AdminSignUp(id, body, ct)));
     }

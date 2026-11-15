@@ -88,7 +88,7 @@ public sealed class ApiTests
         var invite = await Json(await admin.PostAsJsonAsync("/api/v1/admin/invites", new { role = "Member", maxUses = 1, expiresAt = DateTimeOffset.UtcNow.AddDays(1) }));
         using var member = app.Client(); var body = new { inviteCode = invite.GetProperty("code").GetString(), username = "student1", displayName = "同学", password = "StudentPass123!", email = "student@example.com" };
         var registered = await Json(await member.PostAsJsonAsync("/api/v1/auth/register", body)); Bearer(member, registered.GetProperty("accessToken").GetString()!);
-        Assert.Equal(new[] { "media.upload", "speech.participate" }, registered.GetProperty("user").GetProperty("permissions").EnumerateArray().Select(x => x.GetString()));
+        Assert.Equal(new[] { "blog.read", "blog.write", "chat.read", "chat.send", "media.upload", "speech.participate" }, registered.GetProperty("user").GetProperty("permissions").EnumerateArray().Select(x => x.GetString()));
         await AssertProblem(await member.GetAsync("/api/v1/admin/users"), HttpStatusCode.Forbidden, "permission.denied");
         await AssertProblem(await member.PostAsJsonAsync("/api/v1/auth/register", body), HttpStatusCode.UnprocessableEntity, "invite.invalid");
         var profile = await Json(await member.GetAsync("/api/v1/me/profile")); var version = profile.GetProperty("version").GetInt64();

@@ -1,0 +1,24 @@
+.blog-page { max-width: 920px; }
+.blog-heading { flex-wrap: wrap; gap: 12px; }
+.blog-toolbar { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 24px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.blog-toolbar > input { width: min(100%, 280px); }
+.blog-filters, .blog-meta, .blog-pagination { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.blog-filters { gap: 4px; }
+.blog-list { list-style: none; margin: 0; padding: 0; }
+.blog-list__link { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 24px; padding: 20px 0; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
+.blog-list__link:hover h2 { text-decoration: underline; text-underline-offset: 0.2em; }
+.blog-list h2 { margin: 0; font-size: 1.125rem; font-weight: 600; overflow-wrap: anywhere; }
+.blog-list p { margin: 6px 0 0; color: var(--fg-200); overflow-wrap: anywhere; }
+.blog-meta { margin-top: 8px; color: var(--fg-300); font-size: 0.8125rem; overflow-wrap: anywhere; }
+.blog-pagination { justify-content: center; margin-top: 16px; }
+.blog-skeletons, .blog-editor { display: grid; gap: 16px; margin-top: 20px; }
+.blog-article, .blog-editor { max-width: 70ch; margin-top: 24px; }
+.blog-article h1 { overflow-wrap: anywhere; }
+.blog-article__summary { margin: 20px 0 0; font-size: 1.125rem; color: var(--fg-200); overflow-wrap: anywhere; }
+.blog-article__body { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.75; }
+.blog-editor .textarea { resize: vertical; }
+
+@media (max-width: 520px) {
+  .blog-toolbar > input { width: 100%; }
+  .blog-list__link { gap: 12px; }
+}

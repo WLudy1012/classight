@@ -1,0 +1,37 @@
+.updates {
+  max-width: 640px;
+  margin-top: var(--s-7);
+}
+.updates__heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+.updates__heading h2 {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+.updates__details {
+  margin: var(--s-5) 0 0;
+  border-top: 1px solid var(--line);
+}
+.updates__details dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.updates__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin-top: var(--s-4);
+  font-size: var(--text-sm);
+}
+.updates__progress progress {
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  accent-color: var(--fg-100);
+}

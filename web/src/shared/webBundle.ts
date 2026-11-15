@@ -1,5 +1,5 @@
 import { unzipSync } from 'fflate'
-import { findWebIndex } from '../../courseware'
+import { findWebIndex } from './courseware'
 
 const MIME: Record<string, string> = {
   html: 'text/html',
@@ -36,7 +36,8 @@ function toDataUrl(bytes: Uint8Array, mime: string): string {
 /** Resolve `ref` against the directory of `from`, inside the zip. Returns null for external / unsafe refs. */
 function resolve(from: string, ref: string): string | null {
   if (/^([a-z][a-z0-9+.-]*:|\/\/|#)/i.test(ref)) return null
-  const clean = decodeURIComponent(ref.split('#')[0]!.split('?')[0]!)
+  let clean: string
+  try { clean = decodeURIComponent(ref.split('#')[0]!.split('?')[0]!) } catch { return null }
   const parts = from.split('/').slice(0, -1)
   for (const seg of clean.split('/')) {
     if (seg === '' || seg === '.') continue
@@ -49,11 +50,16 @@ function resolve(from: string, ref: string): string | null {
 }
 
 /**
- * Best-effort single-file build of an uploaded web project for the mock: stylesheets, scripts and
- * images are inlined (as text or data URLs). The real backend serves the folder as-is instead.
+ * Bundle common local assets for a sandboxed preview that stays in the browser.
  */
 export function buildWebHtml(zip: Uint8Array): string | null {
-  const files = unzipSync(zip)
+  let size = 0
+  let count = 0
+  const files = unzipSync(zip, { filter: (entry) => {
+    size += entry.originalSize
+    if (++count > 2000 || size > 100 * 1024 * 1024) throw new Error('Web archive exceeds preview limits')
+    return !entry.name.endsWith('/')
+  } })
   const names = Object.keys(files)
   const index = findWebIndex(names)
   if (!index) return null
@@ -97,5 +103,5 @@ export function buildWebHtml(zip: Uint8Array): string | null {
 
   html = html.replace(/<style\b([^>]*)>([\s\S]*?)<\/style>/gi, (_m, attrs: string, css: string) => `<style${attrs}>${inlineCssUrls(css, index)}</style>`)
 
-  return html
+  return '<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src none; script-src data: &apos;unsafe-inline&apos;; style-src data: &apos;unsafe-inline&apos;; img-src data:; font-src data:; media-src data:; connect-src &apos;none&apos;; base-uri &apos;none&apos;; form-action &apos;none&apos;">' + html.replace(/<!doctype[^>]*>/i, '')
 }

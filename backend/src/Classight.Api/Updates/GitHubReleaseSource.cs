@@ -49,7 +49,7 @@ internal sealed class GitHubReleaseSource(HttpClient client)
         return new ReleaseUpdate(version, release.Tag, assetName, binary.Size, checksum.Size, binary.Digest);
     }
 
-    internal async Task<string> DownloadAsync(ReleaseUpdate release, Stream destination, CancellationToken ct)
+    internal async Task<string> DownloadAsync(ReleaseUpdate release, Stream destination, CancellationToken ct, Action<long>? progress = null)
     {
         using var checksumResponse = await GetAssetAsync(release.Tag, release.AssetName + ".sha256", ct);
         var checksumBytes = await ReadSmallBodyAsync(checksumResponse, MaxChecksumSize, ct);
@@ -81,6 +81,7 @@ internal sealed class GitHubReleaseSource(HttpClient client)
             if (total > release.Size) throw new InvalidDataException("Release binary exceeds its declared size.");
             digest.AppendData(buffer, 0, read);
             await destination.WriteAsync(buffer.AsMemory(0, read), ct);
+            progress?.Invoke(total);
         }
 
         if (total != release.Size || Convert.ToHexStringLower(digest.GetHashAndReset()) != checksum)

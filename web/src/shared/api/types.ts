@@ -24,6 +24,12 @@ export type Permission =
   | 'speech.participate'
   | 'speech.manage'
   | 'timetable.manage'
+  | 'blog.read'
+  | 'blog.write'
+  | 'blog.moderate'
+  | 'chat.read'
+  | 'chat.send'
+  | 'chat.moderate'
 
 export interface Page<T> {
   items: T[]
@@ -265,6 +271,22 @@ export interface SystemStatus {
   redis: { enabled: boolean; healthy: boolean }
 }
 
+export interface UpdateStatus {
+  currentVersion: string
+  supported: boolean
+  enabled: boolean
+  platform: 'windows' | 'linux' | 'unsupported'
+  phase: 'unsupported' | 'disabled' | 'idle' | 'queued' | 'checking' | 'current' | 'downloading' | 'installing' | 'ready' | 'error'
+  latestVersion: string | null
+  lastCheckedAt: string | null
+  nextCheckAt: string | null
+  downloadedBytes: number
+  totalBytes: number
+  errorCode: string | null
+  restartRequired: boolean
+  backupAvailable: boolean
+}
+
 /* ---------- errors ---------- */
 export interface ProblemDetails {
   type?: string
@@ -279,6 +301,7 @@ export interface ProblemDetails {
 /* ---------- speech queue (docs/api-contract-speech-setup.md §S1) ---------- */
 export type SpeechSessionStatus = 'draft' | 'open' | 'running' | 'closed'
 export type SpeechEntryStatus = 'queued' | 'speaking' | 'done' | 'skipped'
+export type SpeechReviewStatus = 'pending' | 'approved' | 'returned'
 export type CoursewareKind = 'pptx' | 'ppt' | 'pdf' | 'web'
 export type ConversionState = 'none' | 'converting' | 'ready' | 'failed'
 export type PreviewMode = 'pdf' | 'pptx' | 'web' | 'none'
@@ -321,6 +344,9 @@ export interface SpeechEntry {
   finishedAt?: IsoDate
   mine: boolean
   version: number
+  reviewStatus: SpeechReviewStatus
+  reviewNote?: string | null
+  displaying: boolean
 }
 
 export interface SpeechTeam {
@@ -334,6 +360,14 @@ export interface SpeechTeam {
   joinCode?: string
   mine: boolean
   version: number
+  assigned: boolean
+}
+
+export interface AssignedTeamInput {
+  name: string
+  leaderId: Uuid
+  memberIds: Uuid[]
+  version?: number
 }
 
 export interface SpeechSession {

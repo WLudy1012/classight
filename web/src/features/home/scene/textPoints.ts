@@ -6,6 +6,7 @@
 export interface TextCloud {
   /** xyz per point, normalized so the ink's width is 1 and it is centered on the origin */
   points: Float32Array
+  normals: Float32Array
   /** ink height / ink width */
   aspect: number
 }
@@ -66,6 +67,7 @@ export function sampleText(text: string, count: number): TextCloud {
   const cx = (minX + maxX) / 2
   const cy = (minY + maxY) / 2
   const out = new Float32Array(count * 3)
+  const normals = new Float32Array(count * 3)
   // Depth scales with letter height so a long name does not become a thin slab.
   const depth = Math.min(0.05, (inkH / inkW) * 0.3 + 0.012)
 
@@ -79,6 +81,15 @@ export function sampleText(text: string, count: number): TextCloud {
     out[n * 3 + 1] = -(py - cy) / inkW
     const zr = (Math.random() + Math.random() - 1)
     out[n * 3 + 2] = zr * depth * 0.5
+    const x = i % W
+    const y = Math.floor(i / W)
+    const nx = Number(on(x - 3, y)) - Number(on(x + 3, y))
+    const ny = Number(on(x, y + 3)) - Number(on(x, y - 3))
+    const nz = 0.45 + Math.abs(zr) * 0.55
+    const length = Math.hypot(nx, ny, nz)
+    normals[n * 3] = nx / length
+    normals[n * 3 + 1] = ny / length
+    normals[n * 3 + 2] = nz / length
   }
-  return { points: out, aspect: inkH / inkW }
+  return { points: out, normals, aspect: inkH / inkW }
 }

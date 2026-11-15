@@ -47,6 +47,7 @@ const PATHS = {
   skip: 'M5 5l10 7-10 7zM19 5v14',
   stop: 'M6 6h12v12H6z',
   file: 'M6 3h8l4 4v14H6zM14 3v4h4',
+  chat: 'M3 4h18v13H9l-5 4v-4H3zM7 9h10M7 13h7',
   presentation: 'M3 4h18M5 4v11h14V4M12 15v5M8 20h8',
   team: 'M12 11a3 3 0 100-6 3 3 0 000 6zM7 20c0-3 2.2-5 5-5s5 2 5 5M4.5 11.5a2.4 2.4 0 110-4.8M19.5 11.5a2.4 2.4 0 100-4.8',
   checkCircle: 'M12 21a9 9 0 100-18 9 9 0 000 18zM8 12.5l3 3 5-6',

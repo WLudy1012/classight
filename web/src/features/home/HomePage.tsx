@@ -153,9 +153,12 @@ export default function HomePage() {
   useEffect(() => {
     const move = (e: PointerEvent) => sceneRef.current?.setPointer(e.clientX, e.clientY, true)
     const off = () => sceneRef.current?.setPointer(0, 0, false)
+    const up = (e: PointerEvent) => { if (e.pointerType === 'touch') off() }
     window.addEventListener('pointermove', move, { passive: true })
     window.addEventListener('pointerdown', move, { passive: true })
-    window.addEventListener('pointerup', (e) => e.pointerType === 'touch' && off(), { passive: true })
+    window.addEventListener('pointerup', up, { passive: true })
+    window.addEventListener('pointercancel', off, { passive: true })
+    window.addEventListener('blur', off)
     document.documentElement.addEventListener('mouseleave', off)
     const unsub = useStage.subscribe((s, prev) => {
       if (s.locked !== prev.locked) sceneRef.current?.setLocked(s.locked)
@@ -163,6 +166,9 @@ export default function HomePage() {
     return () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerdown', move)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', off)
+      window.removeEventListener('blur', off)
       document.documentElement.removeEventListener('mouseleave', off)
       unsub()
     }

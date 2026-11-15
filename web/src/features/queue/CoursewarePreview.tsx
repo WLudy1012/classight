@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { speechApi, type Courseware, type PreviewTicket } from '@/shared/api'
+import { speechApi, type Courseware } from '@/shared/api'
+import { buildWebHtml } from '@/shared/webBundle'
 import { errorMessage } from '@/shared/i18n'
-import { Button, Dialog, Icon, Spinner, StateView } from '@/shared/ui'
-import { downloadCourseware } from './download'
+import { Button, Dialog, Spinner, StateView } from '@/shared/ui'
 import './preview.css'
 
-type Phase = { name: 'loading' } | { name: 'ready'; ticket: PreviewTicket } | { name: 'error'; message: string; gone?: boolean }
-
-/** The ticket URL is relative to the site root, so it works against the real backend and the Vite proxy alike. */
-const absolute = (url: string) => (/^(blob:|data:|https?:)/.test(url) ? url : new URL(url, window.location.origin).toString())
+type Phase = { name: 'loading' } | { name: 'ready'; url?: string; html?: string } | { name: 'error'; message: string; gone?: boolean }
 
 export function CoursewarePreview({ courseware, onClose }: { courseware: Courseware; onClose: () => void }) {
   const { t } = useTranslation()
@@ -18,16 +15,31 @@ export function CoursewarePreview({ courseware, onClose }: { courseware: Coursew
   const [full, setFull] = useState(false)
 
   useEffect(() => {
-    let cancelled = false
+    const controller = new AbortController()
+    let objectUrl: string | undefined
     setPhase({ name: 'loading' })
-    speechApi
-      .previewTicket(courseware.id)
-      .then((ticket) => !cancelled && setPhase({ name: 'ready', ticket }))
-      .catch((e) => !cancelled && setPhase({ name: 'error', message: errorMessage(e), gone: (e as { code?: string }).code === 'resource.not_found' }))
-    return () => {
-      cancelled = true
+    if (courseware.previewMode === 'none') {
+      setPhase({ name: 'ready' })
+      return
     }
-  }, [courseware.id, courseware.conversion])
+    void (async () => {
+      const file = await speechApi.previewCourseware(courseware.id, controller.signal)
+      if (courseware.previewMode === 'web') {
+        const html = buildWebHtml(new Uint8Array(await file.arrayBuffer()))
+        if (!html) throw new Error(t('preview.failedBody'))
+        if (!controller.signal.aborted) setPhase({ name: 'ready', html })
+      } else if (!controller.signal.aborted) {
+        objectUrl = URL.createObjectURL(file)
+        setPhase({ name: 'ready', url: objectUrl })
+      }
+    })().catch((e) => {
+      if (!controller.signal.aborted) setPhase({ name: 'error', message: errorMessage(e), gone: (e as { code?: string }).code === 'resource.not_found' })
+    })
+    return () => {
+      controller.abort()
+      if (objectUrl) URL.revokeObjectURL(objectUrl)
+    }
+  }, [courseware.id, courseware.previewMode, t])
 
   useEffect(() => {
     const on = () => setFull(document.fullscreenElement === stage.current)
@@ -40,8 +52,8 @@ export function CoursewarePreview({ courseware, onClose }: { courseware: Coursew
     else void stage.current?.requestFullscreen?.()
   }, [])
 
-  const ticket = phase.name === 'ready' ? phase.ticket : null
-  const canFull = ticket && ticket.mode !== 'none'
+  const preview = phase.name === 'ready' ? phase : null
+  const canFull = preview && courseware.previewMode !== 'none'
 
   return (
     <Dialog
@@ -52,21 +64,13 @@ export function CoursewarePreview({ courseware, onClose }: { courseware: Coursew
       title={courseware.originalName}
       actions={
         <>
-          {ticket?.mode === 'web' && (
-            <a className="btn btn-ghost btn-sm" href={absolute(ticket.url)} target="_blank" rel="noopener noreferrer">
-              <Icon name="externalLink" /> {t('preview.openNew')}
-            </a>
-          )}
-          <Button size="sm" variant="ghost" icon="download" onClick={() => void downloadCourseware(courseware)}>
-            {t('queue.download')}
-          </Button>
           {canFull && (
             <Button size="sm" variant="ghost" iconOnly icon={full ? 'fullscreenExit' : 'fullscreen'} aria-label={full ? t('preview.exitFullscreen') : t('preview.fullscreen')} onClick={toggleFull} />
           )}
         </>
       }
     >
-      <div ref={stage} className="pv" data-mode={ticket?.mode}>
+      <div ref={stage} className="pv" data-mode={courseware.previewMode}>
         {phase.name === 'loading' && (
           <div className="pv__center">
             <Spinner label={t('preview.loading')} />
@@ -76,23 +80,22 @@ export function CoursewarePreview({ courseware, onClose }: { courseware: Coursew
         {phase.name === 'error' && (
           <StateView icon="alert" title={phase.gone ? t('preview.gone') : t('preview.failed')} body={phase.gone ? t('preview.goneBody') : phase.message || t('preview.failedBody')} />
         )}
-        {ticket?.mode === 'none' && <StateView icon="file" title={t('preview.none')} body={t('preview.noneBody')} />}
-        {ticket?.mode === 'pdf' && <iframe className="pv__frame" title={courseware.originalName} src={absolute(ticket.url)} />}
-        {ticket?.mode === 'web' && (
-          // No allow-same-origin: the page runs in an opaque origin and cannot touch this app's memory, cookies or API.
+        {preview && courseware.previewMode === 'none' && <StateView icon="file" title={t('preview.none')} />}
+        {preview?.url && courseware.previewMode === 'pdf' && <iframe className="pv__frame" title={courseware.originalName} src={preview.url} />}
+        {preview?.html && (
           <>
-            <iframe className="pv__frame" title={courseware.originalName} src={absolute(ticket.url)} sandbox="allow-scripts" referrerPolicy="no-referrer" />
+            <iframe className="pv__frame" title={courseware.originalName} srcDoc={preview.html} sandbox="allow-scripts" referrerPolicy="no-referrer" />
             <p className="pv__note">{t('preview.sandboxNote')}</p>
           </>
         )}
-        {ticket?.mode === 'pptx' && <PptxSlides url={absolute(ticket.url)} fallbackName={courseware.originalName} />}
+        {preview?.url && courseware.previewMode === 'pptx' && <PptxSlides url={preview.url} fallbackName={courseware.originalName} />}
       </div>
     </Dialog>
   )
 }
 
 /** Renders a .pptx in the browser, one slide at a time, scaled to the available box. */
-function PptxSlides({ url, fallbackName }: { url: string; fallbackName: string }) {
+export function PptxSlides({ url, fallbackName }: { url: string; fallbackName: string }) {
   const { t } = useTranslation()
   const host = useRef<HTMLDivElement>(null)
   const box = useRef<HTMLDivElement>(null)

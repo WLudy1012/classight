@@ -51,8 +51,19 @@ public sealed class SpeechTests
     private static async Task<JsonElement> Upload(HttpClient client, Guid entryId, byte[] bytes, string fileName) =>
         await Kit.Json(await client.PostAsync($"/api/v1/speech/entries/{entryId}/courseware", Kit.Upload(bytes, fileName)));
 
-    private static async Task<JsonElement> Ticket(HttpClient client, Guid coursewareId) =>
-        await Kit.Json(await client.PostAsync($"/api/v1/speech/courseware/{coursewareId}/preview-ticket", null));
+    private static Task<JsonElement> Review(HttpClient admin, JsonElement entry, string status = "approved", string? note = null) =>
+        ReviewCore(admin, entry.GetProperty("id").GetGuid(), entry.GetProperty("version").GetInt64(), status, note);
+
+    private static async Task<JsonElement> ReviewCore(HttpClient admin, Guid id, long version, string status, string? note) =>
+        await Kit.Json(await admin.PutAsJsonAsync($"/api/v1/admin/speech/entries/{id}/review", new { status, note, version }));
+
+    private static async Task<JsonElement> Display(HttpClient admin, Guid entryId, Guid sessionId, Guid coursewareId)
+    {
+        var entry = (await Detail(admin, sessionId)).GetProperty("entries").EnumerateArray().Single(e => e.GetProperty("id").GetGuid() == entryId);
+        await Review(admin, entry);
+        await Kit.Json(await admin.PostAsync($"/api/v1/admin/speech/entries/{entryId}/start", null));
+        return await Kit.Json(await admin.PostAsync($"/api/v1/admin/speech/courseware/{coursewareId}/display", null));
+    }
 
     /// <summary>Opens a session with one signed-up member who owns the returned entry.</summary>
     private static async Task<(HttpClient Owner, Guid EntryId, Guid SessionId)> OwnedEntry(ApiFactory app, HttpClient admin, string name = "owner")
@@ -134,10 +145,7 @@ public sealed class SpeechTests
 
         await Kit.Problem(await third.Client.PostAsJsonAsync("/api/v1/speech/teams/join", new { code }), HttpStatusCode.Conflict, "speech.team_full");
 
-        var seen = (await Detail(outsider.Client, sessionId)).GetProperty("teams").EnumerateArray().Single();
-        Assert.False(seen.TryGetProperty("joinCode", out _));
-        Assert.Equal(2, seen.GetProperty("members").GetArrayLength());
-        Assert.False(seen.GetProperty("mine").GetBoolean());
+        Assert.Empty((await Detail(outsider.Client, sessionId)).GetProperty("teams").EnumerateArray());
 
         var leaderView = (await Detail(leader.Client, sessionId)).GetProperty("teams").EnumerateArray().Single();
         Assert.Equal(code, leaderView.GetProperty("joinCode").GetString());
@@ -195,6 +203,8 @@ public sealed class SpeechTests
         }
 
         await Kit.Json(await admin.PostAsJsonAsync($"/api/v1/admin/speech/sessions/{sessionId}/status", new { status = "running" }));
+        await Kit.Problem(await admin.PostAsync($"/api/v1/admin/speech/entries/{ids[0]}/start", null), HttpStatusCode.Conflict, "speech.review_required");
+        foreach (var entry in (await Detail(admin, sessionId)).GetProperty("entries").EnumerateArray()) await Review(admin, entry);
 
         var first = await Kit.Json(await admin.PostAsync($"/api/v1/admin/speech/entries/{ids[0]}/start", null));
         Assert.Equal("speaking", first.GetProperty("status").GetString());
@@ -341,14 +351,85 @@ public sealed class SpeechTests
     }
 
     [Fact]
+    public async Task Submissions_are_private_and_changes_invalidate_review()
+    {
+        await using var app = new ApiFactory();
+        var admin = await AdminOf(app);
+        var (owner, entryId, sessionId) = await OwnedEntry(app, admin);
+        var outsider = await Kit.Member(app, admin, "private-outsider");
+        var file = await Upload(owner, entryId, Kit.Site(), "private.zip");
+        var coursewareId = file.GetProperty("id").GetGuid();
+        var preview = $"/api/v1/speech/courseware/{coursewareId}/preview";
+        Assert.Empty((await Detail(outsider.Client, sessionId)).GetProperty("entries").EnumerateArray());
+        using var anonymous = app.Client();
+        await Kit.Problem(await anonymous.GetAsync(preview), HttpStatusCode.Unauthorized, "auth.token_invalid");
+        await Kit.Problem(await outsider.Client.GetAsync(preview), HttpStatusCode.NotFound, "resource.not_found");
+        await Kit.Problem(await outsider.Client.GetAsync($"/api/v1/speech/courseware/{coursewareId}/download"), HttpStatusCode.Forbidden, "permission.denied");
+        await Kit.Problem(await owner.GetAsync($"/api/v1/speech/courseware/{coursewareId}/download"), HttpStatusCode.Forbidden, "permission.denied");
+        Assert.Equal(HttpStatusCode.OK, (await owner.GetAsync(preview)).StatusCode);
+        await Kit.Problem(await owner.PostAsync($"/api/v1/admin/speech/courseware/{coursewareId}/display", null), HttpStatusCode.Forbidden, "permission.denied");
+        await Kit.Problem(await admin.PostAsync($"/api/v1/admin/speech/courseware/{coursewareId}/display", null), HttpStatusCode.Conflict, "speech.display_unavailable");
+
+        var entry = (await Detail(admin, sessionId)).GetProperty("entries")[0];
+        var returned = await Review(admin, entry, "returned", "请补充来源");
+        Assert.Equal("请补充来源", (await Detail(owner, sessionId)).GetProperty("entries")[0].GetProperty("reviewNote").GetString());
+        var revised = await Kit.Json(await owner.PatchAsJsonAsync($"/api/v1/speech/entries/{entryId}", new { topic = "修改后的主题", version = returned.GetProperty("version").GetInt64() }));
+        Assert.Equal("pending", revised.GetProperty("reviewStatus").GetString());
+        var approved = await Review(admin, revised);
+        await Upload(owner, entryId, Kit.Pdf(), "replacement.pdf");
+        Assert.Equal("pending", (await Detail(owner, sessionId)).GetProperty("entries")[0].GetProperty("reviewStatus").GetString());
+        await Kit.Problem(await admin.PutAsJsonAsync($"/api/v1/admin/speech/entries/{entryId}/review", new { status = "approved", version = approved.GetProperty("version").GetInt64() }), HttpStatusCode.Conflict, "resource.version_mismatch");
+        await Kit.Problem(await admin.PostAsync($"/api/v1/admin/speech/entries/{entryId}/start", null), HttpStatusCode.Conflict, "speech.review_required");
+    }
+
+    [Fact]
+    public async Task Administrators_can_assign_edit_and_release_groups_without_losing_submissions()
+    {
+        await using var app = new ApiFactory();
+        var admin = await AdminOf(app);
+        var sessionId = await Kit.OpenSession(admin);
+        var captain = await Kit.Member(app, admin, "assigned-captain");
+        var member = await Kit.Member(app, admin, "assigned-member");
+        var alternate = await Kit.Member(app, admin, "assigned-alternate");
+        var solo = await SignUp(captain.Client, sessionId, "手动分组");
+        var entryId = solo.GetProperty("id").GetGuid();
+        var file = await Upload(captain.Client, entryId, Kit.Pdf(), "keep.pdf");
+        var entry = (await Detail(admin, sessionId)).GetProperty("entries")[0];
+        await Review(admin, entry);
+
+        var url = $"/api/v1/admin/speech/sessions/{sessionId}/teams";
+        var request = new { name = "第一组", leaderId = captain.Id, memberIds = new[] { captain.Id, member.Id } };
+        await Kit.Problem(await member.Client.PostAsJsonAsync(url, request), HttpStatusCode.Forbidden, "permission.denied");
+        var team = await Kit.Json(await admin.PostAsJsonAsync(url, request));
+        var id = team.GetProperty("id").GetGuid();
+        Assert.True(team.GetProperty("assigned").GetBoolean());
+        Assert.False(team.TryGetProperty("joinCode", out _));
+        Assert.Equal(entryId, team.GetProperty("entryId").GetGuid());
+        Assert.Equal("pending", (await Detail(member.Client, sessionId)).GetProperty("entries")[0].GetProperty("reviewStatus").GetString());
+        await Kit.Problem(await member.Client.DeleteAsync($"/api/v1/speech/teams/{id}/members/{member.Id}"), HttpStatusCode.Forbidden, "permission.denied");
+        Assert.Empty((await Detail(alternate.Client, sessionId)).GetProperty("teams").EnumerateArray());
+        await Kit.Problem(await admin.PostAsJsonAsync(url, request), HttpStatusCode.Conflict, "speech.team_exists");
+        await Kit.Json(await admin.PutAsJsonAsync($"{url}/{id}", new { name = "调整后", leaderId = alternate.Id, memberIds = new[] { captain.Id, alternate.Id }, version = team.GetProperty("version").GetInt64() }));
+        Assert.Empty((await Detail(member.Client, sessionId)).GetProperty("entries").EnumerateArray());
+        var revised = (await Detail(alternate.Client, sessionId)).GetProperty("entries")[0];
+        Assert.Equal(alternate.Id, revised.GetProperty("owner").GetProperty("id").GetGuid());
+        Assert.Equal(file.GetProperty("id").GetGuid(), revised.GetProperty("courseware").GetProperty("id").GetGuid());
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/v1/speech/teams/{id}")).StatusCode);
+        Assert.Empty((await Detail(captain.Client, sessionId)).GetProperty("entries").EnumerateArray());
+        var released = (await Detail(alternate.Client, sessionId)).GetProperty("entries")[0];
+        Assert.Equal(entryId, released.GetProperty("id").GetGuid());
+        Assert.False(released.TryGetProperty("team", out _));
+    }
+
+    [Fact]
     public async Task Pdf_preview_is_anonymous_signed_and_supports_range_requests()
     {
         await using var app = new ApiFactory();
         var admin = await AdminOf(app);
-        var (owner, entryId, _) = await OwnedEntry(app, admin);
+        var (owner, entryId, sessionId) = await OwnedEntry(app, admin);
         var uploaded = await Upload(owner, entryId, Kit.Pdf(), "lecture.pdf");
 
-        var ticket = await Ticket(owner, uploaded.GetProperty("id").GetGuid());
+        var ticket = await Display(admin, entryId, sessionId, uploaded.GetProperty("id").GetGuid());
         Assert.Equal("pdf", ticket.GetProperty("mode").GetString());
         Assert.Equal("lecture.pdf", ticket.GetProperty("fileName").GetString());
         var url = ticket.GetProperty("url").GetString()!;
@@ -371,10 +452,10 @@ public sealed class SpeechTests
     {
         await using var app = new ApiFactory();
         var admin = await AdminOf(app);
-        var (owner, entryId, _) = await OwnedEntry(app, admin);
+        var (owner, entryId, sessionId) = await OwnedEntry(app, admin);
         var uploaded = await Upload(owner, entryId, Kit.Site(), "site.zip");
 
-        var ticket = await Ticket(owner, uploaded.GetProperty("id").GetGuid());
+        var ticket = await Display(admin, entryId, sessionId, uploaded.GetProperty("id").GetGuid());
         Assert.Equal("web", ticket.GetProperty("mode").GetString());
         var url = ticket.GetProperty("url").GetString()!;
         Assert.EndsWith("/site/index.html", url, StringComparison.Ordinal);
@@ -388,10 +469,15 @@ public sealed class SpeechTests
         Assert.Equal("*", page.Headers.GetValues("Access-Control-Allow-Origin").Single());
 
         var siteBase = url[..url.LastIndexOf('/')];
+        var statusUrl = siteBase[..siteBase.LastIndexOf('/')] + "/status";
+        Assert.Equal(HttpStatusCode.NoContent, (await anonymous.GetAsync(statusUrl)).StatusCode);
+        Assert.True(page.Headers.CacheControl?.NoStore);
         var script = await anonymous.GetAsync(siteBase + "/app.js");
         Assert.Equal(HttpStatusCode.OK, script.StatusCode);
         Assert.Equal("text/javascript", script.Content.Headers.ContentType?.MediaType);
         Assert.Equal("console.log(1)", await script.Content.ReadAsStringAsync());
+        await Kit.Json(await admin.PostAsJsonAsync($"/api/v1/admin/speech/sessions/{sessionId}/status", new { status = "closed" }));
+        await Kit.Problem(await anonymous.GetAsync(statusUrl), HttpStatusCode.NotFound, "resource.not_found");
     }
 
     [Fact]
@@ -399,9 +485,9 @@ public sealed class SpeechTests
     {
         await using var app = new ApiFactory();
         var admin = await AdminOf(app);
-        var (owner, entryId, _) = await OwnedEntry(app, admin);
+        var (owner, entryId, sessionId) = await OwnedEntry(app, admin);
         var uploaded = await Upload(owner, entryId, Kit.Site(), "site.zip");
-        var url = (await Ticket(owner, uploaded.GetProperty("id").GetGuid())).GetProperty("url").GetString()!;
+        var url = (await Display(admin, entryId, sessionId, uploaded.GetProperty("id").GetGuid())).GetProperty("url").GetString()!;
         var siteBase = url[..url.LastIndexOf('/')];
 
         using var anonymous = app.Client();
@@ -418,10 +504,10 @@ public sealed class SpeechTests
     {
         await using var app = new ApiFactory();
         var admin = await AdminOf(app);
-        var (owner, entryId, _) = await OwnedEntry(app, admin);
+        var (owner, entryId, sessionId) = await OwnedEntry(app, admin);
         var uploaded = await Upload(owner, entryId, Kit.Pdf(), "lecture.pdf");
         var coursewareId = uploaded.GetProperty("id").GetGuid();
-        var url = (await Ticket(owner, coursewareId)).GetProperty("url").GetString()!;
+        var url = (await Display(admin, entryId, sessionId, coursewareId)).GetProperty("url").GetString()!;
         var token = TokenOf(url);
 
         using var anonymous = app.Client();
@@ -434,8 +520,13 @@ public sealed class SpeechTests
         await Kit.Problem(await anonymous.GetAsync("/api/v1/speech/preview/notatoken/file"), HttpStatusCode.Unauthorized, "preview.token_invalid");
         await Kit.Problem(await anonymous.GetAsync("/api/v1/speech/preview/a.b.c/file"), HttpStatusCode.Unauthorized, "preview.token_invalid");
 
-        Assert.Equal(HttpStatusCode.NoContent, (await owner.DeleteAsync($"/api/v1/speech/courseware/{coursewareId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/v1/admin/speech/entries/{entryId}/display")).StatusCode);
+        var reopened = await Kit.Json(await admin.PostAsync($"/api/v1/admin/speech/courseware/{coursewareId}/display", null));
         await Kit.Problem(await anonymous.GetAsync(url), HttpStatusCode.NotFound, "resource.not_found");
+        var newUrl = reopened.GetProperty("url").GetString()!;
+        Assert.Equal(HttpStatusCode.OK, (await anonymous.GetAsync(newUrl)).StatusCode);
+        await Kit.Json(await admin.PostAsync($"/api/v1/admin/speech/entries/{entryId}/finish", null));
+        await Kit.Problem(await anonymous.GetAsync(newUrl), HttpStatusCode.NotFound, "resource.not_found");
     }
 
     [Fact]
@@ -455,7 +546,7 @@ public sealed class SpeechTests
         var sessionId = await Kit.OpenSession(admin);
         var entry = await SignUp(owner, sessionId, "过期测试");
         var uploaded = await Upload(owner, entry.GetProperty("id").GetGuid(), Kit.Pdf(), "lecture.pdf");
-        var url = (await Ticket(owner, uploaded.GetProperty("id").GetGuid())).GetProperty("url").GetString()!;
+        var url = (await Display(admin, entry.GetProperty("id").GetGuid(), sessionId, uploaded.GetProperty("id").GetGuid())).GetProperty("url").GetString()!;
 
         using var anonymous = Anonymous(app);
         Assert.Equal(HttpStatusCode.OK, (await anonymous.GetAsync(url)).StatusCode);

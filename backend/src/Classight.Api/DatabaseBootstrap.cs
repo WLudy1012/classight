@@ -8,11 +8,13 @@ namespace Classight.Api;
 public static class DatabaseBootstrap
 {
     private static readonly string[] AdminExtras = ["content.manage", "users.read", "users.manage", "invites.manage", "site.settings.read", "audit.read", "speech.participate", "speech.manage", "timetable.manage"];
+    private static readonly string[] ClassPermissions = ["blog.read", "blog.write", "chat.read", "chat.send"];
+    private static readonly string[] ModerationPermissions = ["blog.moderate", "chat.moderate"];
 
     /// <summary>The permissions a built-in role gets by default. SuperAdmin always receives everything.</summary>
     public static bool Default(string role, string code) =>
-        role == "SuperAdmin" || code == "media.upload" || code == "speech.participate"
-        || role == "Admin" && (code.StartsWith("class.") || AdminExtras.Contains(code));
+        role == "SuperAdmin" || code == "media.upload" || code == "speech.participate" || ClassPermissions.Contains(code)
+        || role == "Admin" && (code.StartsWith("class.") || AdminExtras.Contains(code) || ModerationPermissions.Contains(code));
 
     /// <summary>Creates the schema, built-in roles, default settings and (when a Bootstrap password is configured) the first administrator.
     /// Does nothing until a database is configured, so a fresh install can reach the setup wizard.</summary>
@@ -37,7 +39,7 @@ public static class DatabaseBootstrap
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
         var system = await SystemState.Read(db, ct);
         // Databases from before permission tracking already hold every code except the speech ones.
-        var seeded = (system?.SeededPermissions ?? (system is null && !await db.Roles.AnyAsync(ct) ? Array.Empty<string>() : codes.Where(x => !x.StartsWith("speech.")).ToArray())).ToHashSet();
+        var seeded = (system?.SeededPermissions ?? (system is null && !await db.Roles.AnyAsync(ct) ? Array.Empty<string>() : codes.Where(x => !x.StartsWith("speech.") && !ClassPermissions.Contains(x) && !ModerationPermissions.Contains(x)).ToArray())).ToHashSet();
         var builtIn = new[] { "Member", "Admin", "SuperAdmin" };
         var existing = await db.Roles.Where(x => builtIn.Contains(x.Name) && !x.Deleted).ToListAsync(ct);
         foreach (var name in builtIn)

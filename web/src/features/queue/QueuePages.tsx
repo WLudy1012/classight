@@ -16,13 +16,14 @@ import './queue.css'
 export function QueueListPage() {
   const { t, i18n } = useTranslation()
   const en = i18n.language.startsWith('en')
-  const manage = can(useAuth((state) => state.user), 'speech.manage')
+  const user = useAuth((state) => state.user)
+  const manage = can(user, 'speech.manage')
   const navigate = useNavigate()
   const [creating, setCreating] = useState(false)
   useDocumentTitle(t('queue.title'))
   const [page, setPage] = useState(1)
   const q = useQuery({
-    queryKey: [...sessionsKey(page), manage ? 'manage' : 'member'],
+    queryKey: [...sessionsKey(page), user?.id, manage],
     queryFn: () => manage ? speechApi.adminSessions({ page, pageSize: 12 }) : speechApi.sessions({ page, pageSize: 12 }),
     placeholderData: keepPreviousData,
     refetchInterval: () => (document.hidden ? false : 10_000),
@@ -30,7 +31,7 @@ export function QueueListPage() {
 
   return (
       <div className="qpage page">
-        <div className="row-between"><div><h1 className="page__title">{t('queue.sessions')}</h1>{manage && <p className="page__sub">{en ? 'Create meetings, open registration and manage the presentation queue.' : '创建班会、开放报名，并管理发言与课件。'}</p>}</div>{manage && <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>{en ? 'Create meeting' : '新建班会'}</Button>}</div>
+        <div className="row-between"><h1 className="page__title">{t('queue.sessions')}</h1>{manage && <Button variant="primary" icon="plus" onClick={() => setCreating(true)}>{en ? 'Create meeting' : '新建班会'}</Button>}</div>
         <div className="qlist">
           {q.isPending && Array.from({ length: 3 }, (_, i) => <Skeleton key={i} h={72} />)}
           {q.isError && (

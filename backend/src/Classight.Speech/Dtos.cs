@@ -13,12 +13,12 @@ public record SpeechEntryView(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] CoursewareView? Courseware,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? StartedAt,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] DateTimeOffset? FinishedAt,
-    bool Mine, long Version);
+    bool Mine, long Version, string ReviewStatus, string? ReviewNote, bool Displaying);
 public record SpeechTeamView(
     Guid Id, Guid SessionId, string Name, Guid LeaderId, IReadOnlyList<TeamMemberView> Members,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? EntryId,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? JoinCode,
-    bool Mine, long Version);
+    bool Mine, long Version, bool Assigned);
 public record SpeechSessionView(
     Guid Id, string Title, DateOnly Date, string Description, int SlotMinutes, bool AllowTeams, int MaxTeamSize, bool SubmissionsOpen, string Status, int EntryCount,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid? CurrentEntryId,
@@ -41,3 +41,5 @@ public record SessionWriteRequest(string? Title, DateOnly? Date, string? Descrip
 public record StatusRequest(string Status);
 public record OrderRequest(Guid[] EntryIds);
 public record AdminEntryCreateRequest(string Topic, Guid OwnerId, Guid? TeamId);
+public record EntryReviewRequest(string Status, string? Note, long Version);
+public record AssignedTeamRequest(string Name, Guid LeaderId, Guid[] MemberIds, long? Version);

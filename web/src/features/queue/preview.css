@@ -82,3 +82,6 @@
     padding: var(--s-2);
   }
 }
+.meeting-display { min-height: 100dvh; display: grid; grid-template-rows: auto 1fr; }
+.meeting-display h1 { font-size: 1rem; margin: 0; padding: var(--s-3) var(--s-4); }
+.meeting-display .pv__frame { min-height: 75dvh; }

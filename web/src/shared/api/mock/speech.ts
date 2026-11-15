@@ -5,10 +5,10 @@
 import { ApiError } from '../errors'
 import type {
   Capabilities,
+  AssignedTeamInput,
   Courseware,
   PersonRef,
   Permission,
-  PreviewTicket,
   SpeechEntry,
   SpeechSession,
   SpeechSessionDetail,
@@ -21,7 +21,6 @@ import { findWebIndex, kindFromName, readBytes, zipEntryNames } from '../../cour
 import { getDb, newId, persist, type DbCourseware, type DbSpeechEntry, type DbSpeechSession, type DbSpeechTeam, type DbUser } from './db'
 import { dropFile, getFile, putFile } from './files'
 import type { Ctx, Handler } from './handlers'
-import { buildWebHtml } from './webBundle'
 
 export interface Kit {
   route: (method: string, path: string, h: Handler) => void
@@ -88,7 +87,7 @@ export function registerSpeechRoutes(k: Kit) {
     return {
       id: e.id,
       sessionId: e.sessionId,
-      position: e.position,
+      position: isManage(me) ? e.position : 1,
       topic: e.topic,
       status: e.status,
       owner: person(e.ownerId),
@@ -98,6 +97,9 @@ export function registerSpeechRoutes(k: Kit) {
       finishedAt: e.finishedAt,
       mine: mineEntry(e, me),
       version: e.version,
+      reviewStatus: e.reviewStatus ?? 'pending',
+      reviewNote: e.reviewNote,
+      displaying: e.displaying ?? false,
     }
   }
   const toTeam = (t: DbSpeechTeam, me: DbUser): SpeechTeam => {
@@ -110,13 +112,14 @@ export function registerSpeechRoutes(k: Kit) {
       leaderId: t.leaderId,
       members: members(t),
       entryId: entry?.id,
-      joinCode: member || isManage(me) ? t.joinCode : undefined,
+      joinCode: !t.assigned && (member || isManage(me)) ? t.joinCode : undefined,
       mine: member,
       version: t.version,
+      assigned: t.assigned ?? false,
     }
   }
-  const toSession = (s: DbSpeechSession): SpeechSession => {
-    const list = sp().entries.filter((e) => e.sessionId === s.id)
+  const toSession = (s: DbSpeechSession, me?: DbUser): SpeechSession => {
+    const list = sp().entries.filter((e) => e.sessionId === s.id && (!me || isManage(me) || mineEntry(e, me)))
     return {
       id: s.id,
       title: s.title,
@@ -135,13 +138,13 @@ export function registerSpeechRoutes(k: Kit) {
   }
   const toDetail = (s: DbSpeechSession, me: DbUser): SpeechSessionDetail => {
     const entries = sp()
-      .entries.filter((e) => e.sessionId === s.id)
+      .entries.filter((e) => e.sessionId === s.id && (isManage(me) || mineEntry(e, me)))
       .sort((a, b) => a.position - b.position)
-    const teams = sp().teams.filter((t) => t.sessionId === s.id)
+    const teams = sp().teams.filter((t) => t.sessionId === s.id && (isManage(me) || t.memberIds.includes(me.id)))
     const myTeam = teams.find((t) => t.memberIds.includes(me.id))
     const myEntry = entries.find((e) => mineEntry(e, me))
     return {
-      ...toSession(s),
+      ...toSession(s, me),
       entries: entries.map((e) => toEntry(e, me)),
       teams: teams.map((t) => toTeam(t, me)),
       myEntryId: myEntry?.id,
@@ -184,6 +187,24 @@ export function registerSpeechRoutes(k: Kit) {
   }
   const canEdit = (me: DbUser, e: DbSpeechEntry) => isManage(me) || e.ownerId === me.id
   const canUpload = (me: DbUser, e: DbSpeechEntry) => isManage(me) || mineEntry(e, me)
+  const resetReview = (entry: DbSpeechEntry) => {
+    delete entry.reviewStatus
+    delete entry.reviewNote
+    entry.displaying = false
+    entry.version += 1
+  }
+  const resetTeamReview = (team: DbSpeechTeam) => {
+    const entry = sp().entries.find((item) => item.teamId === team.id)
+    if (!entry) return
+    if (entry.status !== 'queued') throw ApiError.from(409, 'resource.conflict', 'Group changes require a queued entry')
+    resetReview(entry)
+  }
+  const editableCourseware = (entry: DbSpeechEntry, me: DbUser) => {
+    const session = findSession(entry.sessionId, me)
+    if (!canUpload(me, entry)) throw ApiError.from(403, 'permission.denied', 'Not your entry')
+    if (!isManage(me)) mustBeOpen(session)
+    if (entry.status !== 'queued') throw ApiError.from(403, 'speech.closed', 'Courseware is locked')
+  }
 
   const renumber = (sessionId: string) => {
     sp()
@@ -252,10 +273,10 @@ export function registerSpeechRoutes(k: Kit) {
       const me = includeDraft ? need(ctx, 'speech.manage') : currentUser(ctx)
       const st = ctx.query.status
       const list = sp()
-        .sessions.filter((s) => includeDraft || s.status !== 'draft' || isManage(me))
+        .sessions.filter((s) => includeDraft || s.status !== 'draft')
         .filter((s) => !st || s.status === st)
         .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-        .map(toSession)
+        .map((session) => toSession(session, me))
       return paginate(list, ctx.query)
     }
   route('GET', '/speech/sessions', listSessions(false))
@@ -282,10 +303,13 @@ export function registerSpeechRoutes(k: Kit) {
     const me = need(ctx, 'speech.participate')
     const e = findEntry(ctx.params.id!)
     if (!canEdit(me, e)) throw ApiError.from(403, 'permission.denied', 'Not your entry')
+    if (!isManage(me)) mustBeOpen(findSession(e.sessionId, me))
+    if (e.status !== 'queued') throw ApiError.from(409, 'resource.conflict', 'Entry is locked')
     const b = ctx.body as { topic: string; version: number }
     if (b.version !== e.version) throw ApiError.from(409, 'resource.version_mismatch', 'Entry changed elsewhere')
-    e.topic = topicOf(b)
-    e.version += 1
+    const topic = topicOf(b)
+    if (e.topic !== topic) resetReview(e)
+    e.topic = topic
     audit(me, 'speech.entry.update', 'speechEntry', e.id, `Changed topic: ${e.topic}`)
     persist()
     return toEntry(e, me)
@@ -295,6 +319,10 @@ export function registerSpeechRoutes(k: Kit) {
     const me = need(ctx, 'speech.participate')
     const e = findEntry(ctx.params.id!)
     if (!canEdit(me, e)) throw ApiError.from(403, 'permission.denied', 'Not your entry')
+    if (!isManage(me)) {
+      mustBeOpen(findSession(e.sessionId, me))
+      if (e.status !== 'queued') throw ApiError.from(409, 'resource.conflict', 'Entry is locked')
+    }
     removeEntry(e)
     audit(me, 'speech.entry.delete', 'speechEntry', e.id, `Cancelled: ${e.topic}`)
     persist()
@@ -323,13 +351,15 @@ export function registerSpeechRoutes(k: Kit) {
       .trim()
       .toUpperCase()
     if (!raw) throw ApiError.from(400, 'validation.failed', 'Validation failed', { code: ['required'] })
-    const t = sp().teams.find((x) => x.joinCode.toUpperCase() === raw)
+    const t = sp().teams.find((x) => !x.assigned && x.joinCode.toUpperCase() === raw)
     if (!t) throw ApiError.from(404, 'resource.not_found', 'No team with that code', { code: ['wrong'] })
     const s = findSession(t.sessionId, me)
     mustBeOpen(s)
+    if (teamOf(s.id, me.id)?.id === t.id) return toTeam(t, me)
     if (teamOf(s.id, me.id)) throw ApiError.from(409, 'speech.team_exists', 'Already in a team')
     if (entryOf(s.id, me.id)) throw ApiError.from(409, 'speech.already_signed_up', 'Already signed up')
     if (t.memberIds.length >= s.maxTeamSize) throw ApiError.from(409, 'speech.team_full', 'Team is full')
+    resetTeamReview(t)
     t.memberIds.push(me.id)
     t.version += 1
     audit(me, 'speech.team.join', 'speechTeam', t.id, `Joined team ${t.name}`)
@@ -343,8 +373,13 @@ export function registerSpeechRoutes(k: Kit) {
     const target = ctx.params.userId!
     if (!t.memberIds.includes(target)) throw ApiError.from(404, 'resource.not_found', 'Not a member')
     const self = target === me.id
+    if (!isManage(me)) {
+      if (t.assigned) throw ApiError.from(403, 'permission.denied', 'Staff assignment')
+      mustBeOpen(findSession(t.sessionId, me))
+    }
     if (!self && t.leaderId !== me.id && !isManage(me)) throw ApiError.from(403, 'speech.not_leader', 'Only the leader can remove members')
     if (target === t.leaderId) throw ApiError.from(409, 'resource.conflict', 'The leader cannot leave: disband the team instead')
+    resetTeamReview(t)
     t.memberIds = t.memberIds.filter((x) => x !== target)
     t.version += 1
     audit(me, self ? 'speech.team.leave' : 'speech.team.kick', 'speechTeam', t.id, `${self ? 'Left' : 'Removed a member from'} team ${t.name}`)
@@ -356,8 +391,13 @@ export function registerSpeechRoutes(k: Kit) {
     const me = need(ctx, 'speech.participate')
     const t = findTeam(ctx.params.id!)
     if (t.leaderId !== me.id && !isManage(me)) throw ApiError.from(403, 'speech.not_leader', 'Only the leader can disband the team')
+    if (!isManage(me)) {
+      if (t.assigned) throw ApiError.from(403, 'permission.denied', 'Staff assignment')
+      mustBeOpen(findSession(t.sessionId, me))
+    }
     const entry = sp().entries.find((e) => e.teamId === t.id)
-    if (entry) removeEntry(entry)
+    if (entry && t.assigned) { resetTeamReview(t); delete entry.teamId }
+    else if (entry) removeEntry(entry)
     sp().teams = sp().teams.filter((x) => x.id !== t.id)
     audit(me, 'speech.team.disband', 'speechTeam', t.id, `Disbanded team ${t.name}`)
     persist()
@@ -368,7 +408,7 @@ export function registerSpeechRoutes(k: Kit) {
   route('POST', '/speech/entries/:id/courseware', async (ctx) => {
     const me = need(ctx, 'speech.participate')
     const e = findEntry(ctx.params.id!)
-    if (!canUpload(me, e)) throw ApiError.from(403, 'permission.denied', 'Not your entry')
+    editableCourseware(e, me)
     const f = ctx.body instanceof FormData ? ctx.body.get('file') : null
     if (!(f instanceof Blob)) throw ApiError.from(400, 'validation.failed', 'file required', { file: ['required'] })
     const name = (f as File).name || 'file'
@@ -409,16 +449,22 @@ export function registerSpeechRoutes(k: Kit) {
       uploaderId: me.id,
     }
     sp().courseware.push(c)
+    resetReview(e)
     putFile(c.id, f instanceof File ? f : new File([f], name))
     audit(me, 'courseware.upload', 'courseware', c.id, `Uploaded ${name}`)
     persist()
     return status(201, toCourseware(c))
   })
 
-  route('GET', '/speech/courseware/:id', (ctx) => {
-    currentUser(ctx)
-    return toCourseware(findCourseware(ctx.params.id!))
-  })
+  const privateCourseware = (ctx: Ctx) => {
+    const me = currentUser(ctx)
+    const file = findCourseware(ctx.params.id!)
+    const entry = findEntry(file.entryId)
+    findSession(entry.sessionId, me)
+    if (!isManage(me) && !mineEntry(entry, me)) throw ApiError.from(404, 'resource.not_found', 'Courseware not found')
+    return file
+  }
+  route('GET', '/speech/courseware/:id', (ctx) => toCourseware(privateCourseware(ctx)))
 
   const fileOrGone = (c: DbCourseware) => {
     const f = getFile(c.id)
@@ -427,29 +473,22 @@ export function registerSpeechRoutes(k: Kit) {
   }
 
   route('GET', '/speech/courseware/:id/download', (ctx) => {
-    currentUser(ctx)
-    return fileOrGone(findCourseware(ctx.params.id!))
+    need(ctx, 'speech.manage')
+    return fileOrGone(privateCourseware(ctx))
   })
-
-  route('POST', '/speech/courseware/:id/preview-ticket', async (ctx): Promise<PreviewTicket> => {
-    currentUser(ctx)
-    const c = findCourseware(ctx.params.id!)
-    const cw = toCourseware(c)
-    const expiresAt = new Date(Date.now() + 10 * 60_000).toISOString()
-    if (cw.previewMode === 'none') return { mode: 'none', url: '', expiresAt, fileName: c.originalName }
-    const file = fileOrGone(c)
-    const blobUrl = (b: Blob) => (typeof URL.createObjectURL === 'function' ? URL.createObjectURL(b) : `blob:mock/${c.id}`)
-    if (cw.previewMode === 'pdf') return { mode: 'pdf', url: blobUrl(new Blob([file], { type: 'application/pdf' })), expiresAt, fileName: c.originalName }
-    if (cw.previewMode === 'pptx') return { mode: 'pptx', url: blobUrl(file), expiresAt, fileName: c.originalName }
-    const html = buildWebHtml(await readBytes(file))
-    if (!html) throw ApiError.from(422, 'courseware.invalid_archive', 'index.html is missing')
-    return { mode: 'web', url: blobUrl(new Blob([html], { type: 'text/html' })), expiresAt, fileName: c.originalName }
+  route('GET', '/speech/courseware/:id/preview', (ctx) => {
+    const file = privateCourseware(ctx)
+    if (file.kind === 'ppt') throw ApiError.from(404, 'resource.not_found', 'Preview unavailable')
+    const data = fileOrGone(file)
+    return file.kind === 'pdf' ? new Blob([data], { type: 'application/pdf' }) : data
   })
 
   route('DELETE', '/speech/courseware/:id', (ctx) => {
     const me = need(ctx, 'speech.participate')
     const c = findCourseware(ctx.params.id!)
-    if (!canUpload(me, findEntry(c.entryId))) throw ApiError.from(403, 'permission.denied', 'Not your entry')
+    const entry = findEntry(c.entryId)
+    editableCourseware(entry, me)
+    resetReview(entry)
     dropFile(c.id)
     sp().courseware = sp().courseware.filter((x) => x.id !== c.id)
     audit(me, 'courseware.delete', 'courseware', c.id, `Deleted ${c.originalName}`)
@@ -521,6 +560,10 @@ export function registerSpeechRoutes(k: Kit) {
     const to = (ctx.body as { status?: SpeechSessionStatus } | undefined)?.status
     if (!to || !(to in TRANSITIONS)) throw ApiError.from(400, 'validation.failed', 'Validation failed', { status: ['required'] })
     if (!TRANSITIONS[s.status].includes(to)) throw ApiError.from(409, 'resource.conflict', `Cannot go from ${s.status} to ${to}`)
+    if (to === 'closed' || to === 'open') {
+      const active = sp().entries.find((e) => e.sessionId === s.id && e.status === 'speaking')
+      if (active) { active.status = 'done'; active.displaying = false; active.version += 1 }
+    }
     s.status = to
     s.version += 1
     audit(me, 'speech.session.status', 'speechSession', s.id, `Session ${s.title} is now ${to}`)
@@ -548,13 +591,17 @@ export function registerSpeechRoutes(k: Kit) {
     (ctx) => {
       const me = need(ctx, 'speech.manage')
       const e = findEntry(ctx.params.id!)
+      const session = findSession(e.sessionId, me)
       const now = new Date().toISOString()
       if (action === 'start') {
-        if (e.status !== 'queued') throw ApiError.from(409, 'resource.conflict', 'Only queued entries can start')
+        if (session.status === 'draft' || session.status === 'closed') throw ApiError.from(403, 'speech.closed', 'Meeting is closed')
+        if (e.status !== 'queued' && e.status !== 'skipped') throw ApiError.from(409, 'resource.conflict', 'Only queued or skipped entries can start')
+        if (e.reviewStatus !== 'approved') throw ApiError.from(409, 'speech.review_required', 'Approve the entry first')
         if (sp().entries.some((x) => x.sessionId === e.sessionId && x.status === 'speaking'))
           throw ApiError.from(409, 'speech.speaking_exists', 'Someone is already speaking')
         e.status = 'speaking'
         e.startedAt = now
+        session.status = 'running'
       } else if (action === 'finish') {
         if (e.status !== 'speaking') throw ApiError.from(409, 'resource.conflict', 'Only the current speaker can finish')
         e.status = 'done'
@@ -564,6 +611,7 @@ export function registerSpeechRoutes(k: Kit) {
         e.status = 'skipped'
         e.finishedAt = now
       }
+      if (action !== 'start') e.displaying = false
       e.version += 1
       audit(me, `speech.entry.${action}`, 'speechEntry', e.id, `${action}: ${e.topic}`)
       persist()
@@ -572,6 +620,68 @@ export function registerSpeechRoutes(k: Kit) {
   route('POST', '/admin/speech/entries/:id/start', entryAction('start'))
   route('POST', '/admin/speech/entries/:id/finish', entryAction('finish'))
   route('POST', '/admin/speech/entries/:id/skip', entryAction('skip'))
+  route('PUT', '/admin/speech/entries/:id/review', (ctx) => {
+    const me = need(ctx, 'speech.manage')
+    const entry = findEntry(ctx.params.id!)
+    if (entry.status !== 'queued' && entry.status !== 'skipped') throw ApiError.from(409, 'resource.conflict', 'Entry is locked')
+    const body = ctx.body as { status: 'approved' | 'returned'; note?: string; version: number }
+    if (body.version !== entry.version) throw ApiError.from(409, 'resource.version_mismatch', 'Entry changed elsewhere')
+    const note = body.note?.trim()
+    if (!['approved', 'returned'].includes(body.status) || (body.status === 'returned' && (!note || note.length > 500)))
+      throw ApiError.from(400, 'validation.failed', 'Choose a valid review outcome')
+    entry.reviewStatus = body.status
+    entry.reviewNote = body.status === 'returned' ? note : undefined
+    entry.version += 1
+    audit(me, 'speech.entry.reviewed', 'speechEntry', entry.id, body.status)
+    persist()
+    return toEntry(entry, me)
+  })
+  route('POST', '/admin/speech/courseware/:id/display', (ctx) => {
+    need(ctx, 'speech.manage')
+    throw ApiError.from(409, 'speech.display_requires_backend', 'Public display requires the server')
+  })
+  route('GET', '/admin/speech/sessions/:id/group-candidates', (ctx) => {
+    const me = need(ctx, 'speech.manage')
+    findSession(ctx.params.id!, me)
+    const search = String(ctx.query.q ?? '').trim().toLowerCase()
+    const candidates = getDb().users.filter((user) => user.status === 'active' && [user.displayName, user.username].some((value) => value.toLowerCase().includes(search)))
+      .sort((a, b) => a.displayName.localeCompare(b.displayName))
+    return paginate(candidates.map((user) => person(user.id)), ctx.query)
+  })
+  const assignTeam: Handler = (ctx) => {
+    const me = need(ctx, 'speech.manage')
+    const session = findSession(ctx.params.id!, me)
+    if (!session.allowTeams) throw ApiError.from(403, 'speech.teams_disabled', 'Teams are disabled')
+    if (session.status === 'closed') throw ApiError.from(403, 'speech.closed', 'Meeting is closed')
+    const { name, leaderId, memberIds, version } = ctx.body as AssignedTeamInput
+    if (!name?.trim() || name.trim().length > 100 || !Array.isArray(memberIds) || memberIds.length < 2 || memberIds.length > session.maxTeamSize ||
+      new Set(memberIds).size !== memberIds.length || !memberIds.includes(leaderId) ||
+      !memberIds.every((id) => getDb().users.some((user) => user.id === id && user.status === 'active')))
+      throw ApiError.from(400, 'validation.failed', 'Choose a valid name, members and leader')
+    const teamId = ctx.params.teamId
+    const team = teamId ? findTeam(teamId) : { id: newId(), sessionId: session.id, name: '', leaderId, memberIds: [], joinCode: '', version: 0 }
+    if (team.sessionId !== session.id) throw ApiError.from(404, 'resource.not_found', 'Group not found')
+    if (teamId && version !== team.version) throw ApiError.from(409, 'resource.version_mismatch', 'Group changed elsewhere')
+    if (sp().teams.some((item) => item.sessionId === session.id && item.id !== team.id && item.memberIds.some((id) => memberIds.includes(id))))
+      throw ApiError.from(409, 'speech.team_exists', 'A selected member is already grouped')
+    const attached = sp().entries.find((e) => e.teamId === team.id)
+    const solo = sp().entries.filter((e) => e.sessionId === session.id && !e.teamId && memberIds.includes(e.ownerId))
+    if (solo.some((e) => attached || e.ownerId !== leaderId)) throw ApiError.from(409, 'speech.already_signed_up', 'Resolve independent submissions first')
+    const entry = attached ?? solo[0]
+    if (entry) {
+      if (entry.status !== 'queued') throw ApiError.from(409, 'resource.conflict', 'Entry is locked')
+      entry.ownerId = leaderId
+      entry.teamId = team.id
+      resetReview(entry)
+    }
+    Object.assign(team, { name: name.trim(), leaderId, memberIds, assigned: true, joinCode: '', version: team.version + 1 })
+    if (!teamId) sp().teams.push(team)
+    audit(me, 'speech.team.assigned', 'speechTeam', team.id, team.name)
+    persist()
+    return toTeam(team, me)
+  }
+  route('POST', '/admin/speech/sessions/:id/teams', assignTeam)
+  route('PUT', '/admin/speech/sessions/:id/teams/:teamId', assignTeam)
 
   route('POST', '/admin/speech/sessions/:id/entries', (ctx) => {
     const me = need(ctx, 'speech.manage')

@@ -116,14 +116,14 @@ describe('teams', () => {
   it('joins by code, enforces size, and shares the entry', async () => {
     await student()
     const open = await sessionByStatus('open')
-    const before = (await detail(open.id)).teams[0]!
+    expect((await detail(open.id)).teams).toHaveLength(0)
     const joined = await speechApi.joinTeam({ code: 'demo-book' }) // codes are case-insensitive
     expect(joined.mine).toBe(true)
-    expect(joined.members.length).toBe(before.members.length + 1)
+    expect(joined.members.length).toBeGreaterThan(1)
     const d = await detail(open.id)
     expect(d.myEntryId).toBeTruthy()
     expect((await err(speechApi.joinTeam({ code: 'NOPE' })))?.status).toBe(404)
-    expect((await err(speechApi.joinTeam({ code: 'DEMO-BOOK' })))?.code).toBe('speech.team_exists')
+    expect((await speechApi.joinTeam({ code: 'DEMO-BOOK' })).id).toBe(joined.id)
   })
 
   it('reports team_full when the limit is reached', async () => {
@@ -192,6 +192,8 @@ describe('admin run console', () => {
     const running = await sessionByStatus('running')
     const d = await detail(running.id)
     const queued = d.entries.filter((e) => e.status === 'queued')
+    expect((await err(speechApi.startEntry(queued[0]!.id)))?.code).toBe('speech.review_required')
+    await speechApi.reviewEntry(queued[0]!.id, { status: 'approved', version: queued[0]!.version })
     expect((await err(speechApi.startEntry(queued[0]!.id)))?.code).toBe('speech.speaking_exists')
     const speaking = d.entries.find((e) => e.status === 'speaking')!
     await speechApi.finishEntry(speaking.id)
@@ -278,9 +280,10 @@ describe('courseware', () => {
     expect(second.previewMode).toBe('pdf')
     const d = await detail(e.sessionId)
     expect(d.entries.find((x) => x.id === e.id)?.courseware?.id).toBe(second.id)
-    const ticket = await speechApi.previewTicket(second.id)
-    expect(ticket.mode).toBe('pdf')
-    expect(new Date(ticket.expiresAt).getTime()).toBeGreaterThan(Date.now())
+    const preview = await speechApi.previewCourseware(second.id)
+    expect(preview.type).toBe('application/pdf')
+    expect((await err(speechApi.downloadCourseware(second.id)))?.status).toBe(403)
+    await admin()
     const blob = await speechApi.downloadCourseware(second.id)
     expect(blob.size).toBe(second.size)
   })
@@ -290,8 +293,7 @@ describe('courseware', () => {
     const cw = await speechApi.uploadCourseware(e.id, site(), noop)
     expect(cw.kind).toBe('web')
     expect(cw.previewMode).toBe('web')
-    const ticket = await speechApi.previewTicket(cw.id)
-    expect(ticket.mode).toBe('web')
+    expect((await speechApi.previewCourseware(cw.id)).size).toBe(cw.size)
   })
 
   it('does not let strangers touch someone else’s entry, but managers can', async () => {
@@ -306,11 +308,11 @@ describe('courseware', () => {
   })
 
   it('keeps metadata but not the bytes of seeded decks: preview says the file is gone', async () => {
-    await student()
+    await admin()
     const running = await sessionByStatus('running')
     const d = await detail(running.id)
     const seeded = d.entries.find((x) => x.courseware)!.courseware!
-    const gone = await err(speechApi.previewTicket(seeded.id))
+    const gone = await err(speechApi.previewCourseware(seeded.id))
     expect(gone?.status).toBe(404)
     expect(gone?.code).toBe('courseware.file_missing')
   })

@@ -17,7 +17,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
 it('reorders only queued entries while a meeting contains finished presentations', async () => {
-  const entry = (id: string, position: number, status: SpeechEntry['status']): SpeechEntry => ({ id, sessionId: 'meeting', position, topic: id, status, owner: { id, displayName: id }, mine: false, version: 1 })
+  const entry = (id: string, position: number, status: SpeechEntry['status']): SpeechEntry => ({ id, sessionId: 'meeting', position, topic: id, status, owner: { id, displayName: id }, mine: false, version: 1, reviewStatus: 'pending', displaying: false })
   const meeting: SpeechSessionDetail = { id: 'meeting', title: '班会', date: '2026-11-01', description: '', slotMinutes: 5, allowTeams: false, maxTeamSize: 4, submissionsOpen: true, status: 'running', entryCount: 3, version: 1, createdAt: '2026-11-01', teams: [], entries: [entry('finished', 1, 'done'), entry('first', 2, 'queued'), entry('second', 3, 'queued')] }
   vi.spyOn(speechApi, 'session').mockResolvedValue(meeting)
   const reorder = vi.spyOn(speechApi, 'setOrder').mockResolvedValue(meeting)

@@ -6,7 +6,7 @@
 | 权限 | 默认角色 | 说明 |
 |---|---|---|
 | `speech.participate` | Member、Admin、SuperAdmin | 报名排队、组队、上交/替换自己的课件 |
-| `speech.manage` | Admin、SuperAdmin | 场次 CRUD、调序、状态控制、代为报名/删除条目、查看全部课件 |
+| `speech.manage` | Admin、SuperAdmin | 管理场次、审核报名、指定分组、控制发言和对外展示 |
 
 已有数据库的内置角色（Member/Admin/SuperAdmin）在启动时**幂等补齐**新权限。
 
@@ -17,6 +17,8 @@
 | 409 | `speech.team_full` | 队伍已满（`maxTeamSize`） |
 | 409 | `speech.team_exists` | 已在本场次的另一支队伍里 |
 | 409 | `speech.speaking_exists` | 已有正在演讲的条目 |
+| 409 | `speech.review_required` | 发言前须通过审核 |
+| 409 | `speech.display_unavailable` | 只有发言中的已审核课件可以对外展示 |
 | 403 | `speech.closed` | 场次未开放报名 / 已结束 |
 | 403 | `speech.not_leader` | 需要队长权限 |
 | 403 | `speech.teams_disabled` | 本场次不允许组队 |
@@ -30,6 +32,12 @@
 
 ## S1. 班会场次与排队（登录后可读；写操作按权限）
 
+开放报名的场次供成员提交主题与课件。成员可查看自己的报名及所属小组，管理员可查看全部报名。每条报名默认待审核，管理员可通过或退回并填写原因。主题、课件或小组成员发生变更后须重新审核。报名关闭后成员停止修改，发言前须审核通过。
+
+管理员可创建或修改指定小组，选择成员和队长。成员不能凭加入码进入指定小组。已有独立报名的队长可保留报名及课件并转为小组报名。其他成员须先处理已有的报名或分组。
+
+课件审核在登录状态下预览。通过审核并开始发言后，管理员可为当前课件单独开启对外展示。访客通过限时展示链接观看。停止展示、结束发言、替换课件或关闭场次后，服务器拒绝原展示链接的后续请求。
+
 ### 数据结构
 ```
 SpeechSession { id, title, date(YYYY-MM-DD), description, slotMinutes, allowTeams, maxTeamSize,
@@ -38,10 +46,11 @@ SpeechSession { id, title, date(YYYY-MM-DD), description, slotMinutes, allowTeam
 SpeechSessionDetail = SpeechSession & { entries: SpeechEntry[](按 position), teams: SpeechTeam[],
                                         myEntryId?, myTeamId? }
 SpeechEntry { id, sessionId, position, topic, status: 'queued'|'speaking'|'done'|'skipped',
+              reviewStatus: 'pending'|'approved'|'returned', reviewNote?, displaying,
               owner: PersonRef, team?: { id, name, members: TeamMember[] },
               courseware?: Courseware, startedAt?, finishedAt?, mine: boolean, version }
-SpeechTeam  { id, sessionId, name, leaderId, members: TeamMember[], entryId?, joinCode?, mine: boolean, version }
-              // joinCode 只对队伍成员与 speech.manage 返回
+SpeechTeam  { id, sessionId, name, leaderId, members: TeamMember[], entryId?, joinCode?, mine, version, assigned }
+              // 自由组队的 joinCode 只对队伍成员与 speech.manage 返回
 PersonRef   { id, displayName, avatarUrl? }
 TeamMember  { userId, displayName, avatarUrl?, isLeader }
 Courseware  { id, entryId, kind: 'pptx'|'ppt'|'pdf'|'web', originalName, size,
@@ -59,7 +68,7 @@ Capabilities { pptConverter: boolean, maxCoursewareMb, allowedKinds: string[],
 |---|---|---|
 | GET `/speech/capabilities` | 能力与默认值 | 登录 |
 | GET `/speech/sessions?status&page&pageSize` | 场次列表（`date` 倒序）；非 manage 看不到 `draft` | 登录 |
-| GET `/speech/sessions/{id}` | `SpeechSessionDetail` | 登录（draft 仅 manage） |
+| GET `/speech/sessions/{id}` | `SpeechSessionDetail`，成员只看到自己的报名与小组 | 登录（draft 仅 manage） |
 | POST `/speech/sessions/{id}/entries` `{topic, teamId?}` | 报名。带 `teamId` 须是该队队长，以队伍名义占一个条目；否则个人条目 | `speech.participate`，场次 `open` 且 `submissionsOpen` |
 | PATCH `/speech/entries/{id}` `{topic, version}` | 改主题 | 本人/队长 或 manage |
 | DELETE `/speech/entries/{id}` | 取消条目（删除其课件文件） | 本人/队长 或 manage |
@@ -68,11 +77,12 @@ Capabilities { pptConverter: boolean, maxCoursewareMb, allowedKinds: string[],
 | DELETE `/speech/teams/{id}/members/{userId}` | 队长踢人 / 本人退队 / manage；队长不能退队（须解散或转让） | 见左 |
 | DELETE `/speech/teams/{id}` | 解散队伍（同时删除其条目与课件） | 队长 或 manage |
 | POST `/speech/entries/{id}/courseware` multipart `file` | 上交/替换课件，返回 `Courseware`（201） | 条目所有者/队长/队员 或 manage |
-| GET `/speech/courseware/{id}` | 元数据 | 登录 |
-| GET `/speech/courseware/{id}/download` | 下载原文件（`Content-Disposition: attachment`） | 登录 |
-| POST `/speech/courseware/{id}/preview-ticket` | 返回 `PreviewTicket`（10 分钟签名） | 登录 |
+| GET `/speech/courseware/{id}` | 元数据 | 提交者、组员或 manage |
+| GET `/speech/courseware/{id}/preview` | 内部预览文件。网页课件返回 ZIP 供客户端在隔离框架内预览 | 提交者、组员或 manage |
+| GET `/speech/courseware/{id}/download` | 读取原文件，用于本地审核无法在线预览的格式 | manage |
 | DELETE `/speech/courseware/{id}` | 删除课件 | 同上传 |
-| GET `/speech/preview/{token}/file` | pdf / pptx 原文件，支持 Range；匿名，凭路径签名 | 签名 |
+| GET `/speech/preview/{token}/status` | 当前展示有效时返回 204 | 签名且展示有效 |
+| GET `/speech/preview/{token}/file` | pdf / pptx 展示内容，支持 Range | 签名且展示有效 |
 | GET `/speech/preview/{token}/site/{**path}` | 网页项目静态文件；空 path = 入口 html | 签名 |
 
 约束：同场次一人只能有一个条目（单人或经队伍）；同一时间只能有一个 `speaking`；条目 `position` 从 1 起连续。上传上限取设置 `speech.maxCoursewareMb`（默认 50）。
@@ -86,6 +96,12 @@ Capabilities { pptConverter: boolean, maxCoursewareMb, allowedKinds: string[],
 | DELETE `/admin/speech/sessions/{id}` | 软删除 |
 | POST `/admin/speech/sessions/{id}/status` `{status}` | 状态流转：`draft→open→running→closed`，允许 `open⇄running`、`closed→open` |
 | PUT `/admin/speech/sessions/{id}/order` `{entryIds:[...]}` | 整体设置队列顺序（必须恰为该场次全部 `queued` 条目） |
+| PUT `/admin/speech/entries/{id}/review` `{status, note?, version}` | 通过（`approved`）或退回（`returned`）。退回须提供原因 |
+| POST `/admin/speech/courseware/{id}/display` | 开启展示或获取有效期 10 分钟的展示链接 |
+| DELETE `/admin/speech/entries/{id}/display` | 停止展示 |
+| GET `/admin/speech/sessions/{id}/group-candidates?q&page&pageSize` | 分页查询可分组账号 |
+| POST `/admin/speech/sessions/{id}/teams` `{name,leaderId,memberIds}` | 指定小组 |
+| PUT `/admin/speech/sessions/{id}/teams/{teamId}` `{name,leaderId,memberIds,version}` | 修改分组。解除指定小组时，已有报名和课件转回队长 |
 | POST `/admin/speech/entries/{id}/start` / `finish` / `skip` | 开始（需无其他 speaking）/ 完成 / 跳过；返回条目 |
 | POST `/admin/speech/sessions/{id}/entries` `{topic, ownerId, teamId?}` | 代为报名 |
 

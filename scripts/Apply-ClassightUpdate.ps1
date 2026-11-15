@@ -1,8 +1,20 @@
+param(
+    [string]$InstallDirectory = $PSScriptRoot,
+    [string]$ExecutableName = 'ClassightDaemon.exe',
+    [int]$WaitForProcessId = 0,
+    [long]$WaitForStartTicks = 0
+)
 $ErrorActionPreference = 'Stop'
-$updateDirectory = Join-Path $PSScriptRoot 'data/updates'
+$InstallDirectory = [IO.Path]::GetFullPath($InstallDirectory)
+if ([IO.Path]::GetFileName($ExecutableName) -ne $ExecutableName -or
+    $ExecutableName.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0 -or
+    -not $ExecutableName.EndsWith('.exe', [StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Expected an executable filename without a directory.'
+}
+$updateDirectory = Join-Path $InstallDirectory 'data/updates'
 $pendingFile = Join-Path $updateDirectory 'pending.json'
 $pendingExecutable = Join-Path $updateDirectory 'ClassightDaemon.pending.exe'
-$installedExecutable = Join-Path $PSScriptRoot 'ClassightDaemon.exe'
+$installedExecutable = Join-Path $InstallDirectory $ExecutableName
 $backupExecutable = Join-Path $updateDirectory 'ClassightDaemon.previous.exe'
 
 function Get-UpdateEnvironmentValue([string]$Prefix) {
@@ -22,8 +34,8 @@ function Test-UpdateEnabled {
         if ($null -ne $value) { $enabled = $value }
     }
     foreach ($name in @('appsettings.json', 'appsettings.Local.json')) {
-        $path = Join-Path (Join-Path $PSScriptRoot 'config') $name
-        if (-not [IO.File]::Exists($path)) { $path = Join-Path $PSScriptRoot $name }
+        $path = Join-Path (Join-Path $InstallDirectory 'config') $name
+        if (-not [IO.File]::Exists($path)) { $path = Join-Path $InstallDirectory $name }
         if (-not [IO.File]::Exists($path)) { continue }
         $json = [IO.File]::ReadAllText($path)
         $stringLiteral = '"(?:\\.|[^"\\])*"'
@@ -72,6 +84,18 @@ function Restore-PreviousExecutable {
 
 if (-not [IO.File]::Exists($pendingFile)) { return }
 
+if ($WaitForProcessId -gt 0) {
+    $daemon = $null
+    try { $daemon = [Diagnostics.Process]::GetProcessById($WaitForProcessId) }
+    catch [ArgumentException] { }
+    if ($null -ne $daemon) {
+        try {
+            if ($daemon.StartTime.ToUniversalTime().Ticks -eq $WaitForStartTicks) { $daemon.WaitForExit() }
+        }
+        finally { $daemon.Dispose() }
+    }
+}
+
 $updateLock = $null
 try {
     $updateLock = [IO.File]::Open((Join-Path $updateDirectory 'update.lock'), 'OpenOrCreate', 'ReadWrite', 'None')
@@ -81,7 +105,10 @@ try {
     $installedVersion = Get-StableVersion ([Diagnostics.FileVersionInfo]::GetVersionInfo($installedExecutable).ProductVersion)
 
     try {
+        if ((New-Object IO.FileInfo $pendingFile).Length -gt 4096) { throw 'The pending update manifest is too large.' }
         $pending = ConvertFrom-Json -InputObject ([IO.File]::ReadAllText($pendingFile))
+        $targetName = if ($pending.executableName) { $pending.executableName } else { 'ClassightDaemon.exe' }
+        if ($targetName -ne $ExecutableName) { throw 'The pending update targets another executable.' }
         $nextVersion = Get-StableVersion $pending.version
         $baseVersion = Get-StableVersion $pending.currentVersion
         if ($nextVersion -le $installedVersion -or $baseVersion -ne $installedVersion) {
@@ -110,9 +137,11 @@ try {
         throw
     }
     [IO.File]::Delete($pendingFile)
+    [IO.File]::Delete((Join-Path $updateDirectory 'last-error.txt'))
     Write-Host "Classight updated from $installedVersion to $nextVersion."
 }
 catch {
+    try { [IO.File]::WriteAllText((Join-Path $updateDirectory 'last-error.txt'), $_.Exception.Message) } catch { }
     Write-Warning "Classight could not apply the pending update. $($_.Exception.Message)"
 }
 finally {

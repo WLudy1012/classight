@@ -232,6 +232,7 @@ Soft but restrained: 6px (skeletons), 10px (buttons, inputs, tables, toasts), 18
 
 ### Motion
 - CSS: ease-out cubic-bezier(0.16,1,0.3,1), ease-in-out (0.65,0,0.35,1), ease-snap (0.2,0.9,0.1,1); durations 140/280/640ms. JS springs in shared/motion: follow, snap, lean, progress, commit. Reduced motion collapses all durations to near zero. Home entry is staged: name, then slogan (900ms delay), then dock (1100ms), then corner chrome (600ms).
+- The particle name follows a continuous curl field with damped spring return, velocity-driven pointer wakes, and a small loose outer cloud. Physics advances at a fixed 60 Hz with interpolated rendering. A slow moving light shades spherical particles and their letter contours; a soft offset particle projection grounds the name on white. Opening the info sheet strengthens the return and reduces drift. Low quality omits the projection. Hidden pages pause the particle simulation; reduced motion keeps lighting still, removes autonomous motion and entrance delays, and softens pointer forces.
 
 ## Do's and Don'ts
 

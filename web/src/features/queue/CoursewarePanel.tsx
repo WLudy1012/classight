@@ -34,8 +34,7 @@ export async function precheck(file: File, caps: Capabilities | undefined, t: (k
 
 export const formatSize = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`)
 
-/** Upload / replace / preview / download / delete for one entry's courseware. */
-export function CoursewarePanel({ entry, canEdit, caps, invalidate }: { entry: SpeechEntry; canEdit: boolean; caps?: Capabilities; invalidate: () => void }) {
+export function CoursewarePanel({ entry, canEdit, manage, caps, invalidate }: { entry: SpeechEntry; canEdit: boolean; manage: boolean; caps?: Capabilities; invalidate: () => void }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
   const cw = entry.courseware
@@ -104,10 +103,10 @@ export function CoursewarePanel({ entry, canEdit, caps, invalidate }: { entry: S
             <span className="cw__sub muted">{t('queue.uploadedBy', { name: cw.uploader.displayName, time: formatDate(cw.uploadedAt, { dateStyle: 'medium', timeStyle: 'short' }) })}</span>
           </div>
           <div className="row-actions">
-            <Button size="sm" variant="secondary" icon="play" onClick={() => setPreviewing(cw)}>
+            {cw.previewMode !== 'none' && <Button size="sm" variant="secondary" icon="play" onClick={() => setPreviewing(cw)}>
               {t('queue.preview')}
-            </Button>
-            <Button size="sm" variant="ghost" iconOnly icon="download" aria-label={t('queue.download')} onClick={() => void downloadCourseware(cw)} />
+            </Button>}
+            {manage && cw.previewMode === 'none' && <Button size="sm" variant="ghost" icon="download" onClick={() => void downloadCourseware(cw)}>{t('queue.review.localPreview')}</Button>}
             {canEdit && <Button size="sm" variant="ghost" iconOnly icon="trash" aria-label={t('queue.coursewareDelete')} onClick={() => setConfirmDelete(true)} />}
           </div>
         </div>
@@ -132,9 +131,9 @@ export function CoursewarePanel({ entry, canEdit, caps, invalidate }: { entry: S
       )}
       {!canEdit && !cw && <p className="muted small">{t('queue.coursewareNone')}</p>}
 
-      {previewing && (
+      {previewing && cw?.id === previewing.id && (
         <Suspense fallback={null}>
-          <CoursewarePreview courseware={previewing} onClose={() => setPreviewing(null)} />
+          <CoursewarePreview courseware={cw} onClose={() => setPreviewing(null)} />
         </Suspense>
       )}
       <ConfirmDialog

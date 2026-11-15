@@ -149,6 +149,7 @@
 .qitem[data-mine] {
   background: rgba(11, 18, 32, 0.03);
 }
+.qitem[data-private] { grid-template-columns: minmax(0, 1fr); }
 .qitem__pos {
   padding-top: 4px;
   color: var(--fg-500);
@@ -305,3 +306,14 @@
   border: 0;
 }
 .meeting-management { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--s-3); padding: var(--s-4) 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-bottom: var(--s-5); }
+.meeting-review { display: grid; gap: var(--s-2); margin-top: var(--s-2); }
+.meeting-review p { margin: 0; }
+.meeting-review .inline-form { flex-wrap: wrap; align-items: end; }
+.meeting-review .inline-form > :first-child { flex: 1 1 12rem; min-width: 0; }
+.meeting-review-heading { flex-wrap: wrap; margin-bottom: var(--s-3); }
+.meeting-review-heading .page__h { margin: 0; }
+.meeting-review-heading select { width: auto; }
+.meeting-review-heading .select { flex: 0 1 auto; }
+.meeting-group-picker { display: grid; gap: var(--s-1); min-width: 0; border: 1px solid var(--line); border-radius: var(--r-md); padding: var(--s-2) var(--s-3); }
+.meeting-group-picker .row-between { gap: var(--s-2); }
+.meeting-group-picker span { overflow-wrap: anywhere; }

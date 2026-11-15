@@ -1,7 +1,9 @@
 import type { Dict } from './zh'
 import { enSpeech } from './en.speech'
+import { communityEn } from './community'
 
 export const en: Dict = {
+  ...communityEn,
   timetable: { title: 'Timetable', description: 'View lessons and class times by week' },
   center: { title: 'Workspace', description: 'Class activities and everyday tools.', meetingsDescription: 'Browse meetings, sign up and submit courseware.', empty: 'No class features are available yet.' },
   memberIdentity: { title: 'Member permissions', description: 'View the permissions for your account.', explanation: 'Account roles grant permissions that other plugins can use to protect actions.', currentPermissions: 'Current account permissions', empty: 'This account has no permissions.' },
@@ -36,6 +38,9 @@ export const en: Dict = {
     synthetic: 'Demo data',
   },
   errors: {
+    'updates.unsupported': 'Automatic updates require a daemon release',
+    'updates.disabled': 'Automatic updates are disabled in the configuration file',
+    'updates.busy': 'An update is in progress or waiting for a restart',
     'captcha.invalid': 'Verification failed. Please try again',
     'captcha.unavailable': 'Verification is temporarily unavailable. Please try again later',
     'validation.failed': 'Some fields need attention',

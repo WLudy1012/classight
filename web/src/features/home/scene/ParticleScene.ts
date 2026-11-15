@@ -2,6 +2,7 @@ import {
   BufferAttribute,
   BufferGeometry,
   Color,
+  type DataTexture,
   FloatType,
   HalfFloatType,
   PerspectiveCamera,
@@ -17,7 +18,7 @@ import { GPUComputationRenderer } from 'three/examples/jsm/misc/GPUComputationRe
 import type { QualityTier } from '@/shared/api'
 import { easeOutExpo, lerp, smoothstep } from '@/shared/motion'
 import { runtime } from '../stage/store'
-import { dustFragment, dustVertex, pointsFragment, pointsVertex, positionShader, velocityShader } from './shaders'
+import { dustFragment, dustVertex, pointsFragment, pointsVertex, positionShader, shadowFragment, shadowVertex, velocityShader } from './shaders'
 import { ensureFonts, sampleText } from './textPoints'
 
 export interface SceneOptions {
@@ -44,6 +45,7 @@ export const SHRINK = 0.5
 const FOV = 38
 const CAM_Z = 16
 const VIS_H = 2 * CAM_Z * Math.tan((FOV * Math.PI) / 360)
+const STEP = 1 / 60
 
 export interface ScreenBox {
   x: number
@@ -61,10 +63,13 @@ export class ParticleScene {
   private velVar!: ReturnType<GPUComputationRenderer['addVariable']>
   private posVar!: ReturnType<GPUComputationRenderer['addVariable']>
   private pointsMat!: ShaderMaterial
+  private shadowMat?: ShaderMaterial
   private dustMat?: ShaderMaterial
+  private targetTexture?: DataTexture
   private raf = 0
   private last = 0
   private t = 0
+  private accumulator = 0
   private introT = 0
   private introFired = false
   private disposed = false
@@ -74,6 +79,10 @@ export class ParticleScene {
   private aspect = 0.2
   private fit = 8
   private mouse = new Vector3(999, 999, 0)
+  private mousePrevious = new Vector3(999, 999, 0)
+  private mouseVelocity = new Vector3()
+  private mouseDelta = new Vector3()
+  private light = new Vector3(-4, 7, 5)
   private mouseOn = 0
   private mouseTarget = 0
   private boost = 0
@@ -98,6 +107,7 @@ export class ParticleScene {
     this.canvas = canvas
     try {
       await ensureFonts(this.o.text)
+      if (this.disposed) return false
       this.o.container.appendChild(canvas)
       this.renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: 'high-performance' })
     } catch {
@@ -156,24 +166,32 @@ export class ParticleScene {
         uTime: { value: 0 },
         uDt: { value: 1 / 60 },
         uAssemble: { value: this.o.calm ? 1 : 0 },
-        uSpring: { value: 18 },
-        uDamp: { value: 7.5 },
-        uNoise: { value: this.o.calm ? 0 : 0.12 },
+        uSpring: { value: 24 },
+        uDamp: { value: this.o.calm ? 9 : 5.8 },
+        uNoise: { value: 0 },
         uRadius: { value: 0.9 },
         uStrength: { value: 28 },
         uMouseOn: { value: 0 },
         uMouse: { value: this.mouse },
+        uMousePrev: { value: this.mousePrevious },
+        uMouseVelocity: { value: this.mouseVelocity },
         uCenter: { value: this.center },
         uScale: { value: 1 },
       })
       posVar.material.uniforms.uDt = { value: 1 / 60 }
       const err = gpu.init()
-      return { gpu, velVar, posVar, err }
+      return { gpu, velVar, posVar, tgt, err }
     }
 
     let built = build(FloatType)
-    if (built.err !== null) built = build(HalfFloatType)
     if (built.err !== null) {
+      built.gpu.dispose()
+      built.tgt.dispose()
+      built = build(HalfFloatType)
+    }
+    if (built.err !== null) {
+      built.gpu.dispose()
+      built.tgt.dispose()
       this.renderer.dispose()
       canvas.remove()
       return false
@@ -181,6 +199,7 @@ export class ParticleScene {
     this.gpu = built.gpu
     this.velVar = built.velVar
     this.posVar = built.posVar
+    this.targetTexture = built.tgt
 
     // render geometry: one vertex per particle, looks up its texel
     const geo = new BufferGeometry()
@@ -194,6 +213,7 @@ export class ParticleScene {
     geo.setAttribute('position', new BufferAttribute(new Float32Array(count * 3), 3))
     geo.setAttribute('aRef', new BufferAttribute(ref, 2))
     geo.setAttribute('aSeed', new BufferAttribute(seed, 1))
+    geo.setAttribute('aNormal', new BufferAttribute(cloud.normals, 3))
     const base = new Color(this.o.color)
     this.pointsMat = new ShaderMaterial({
       vertexShader: pointsVertex,
@@ -201,26 +221,44 @@ export class ParticleScene {
       transparent: true,
       depthWrite: false,
       uniforms: {
-        tPos: { value: null },
+        tPos: { value: this.gpu.getCurrentRenderTarget(this.posVar).texture },
+        tPrevious: { value: this.gpu.getAlternateRenderTarget(this.posVar).texture },
+        uBlend: { value: 1 },
         uSize: { value: tier.size },
         uPixelRatio: { value: this.renderer.getPixelRatio() },
         uFade: { value: this.o.calm ? 1 : 0 },
         uSizeScale: { value: 1 },
         uKeep: { value: 1 },
         uColor: { value: base },
-        uTint: { value: new Color('#3c5a82') },
+        uTint: { value: base.clone().lerp(new Color('#6b7686'), 0.7) },
+        uLight: { value: this.light },
       },
     })
     const points = new Points(geo, this.pointsMat)
     points.frustumCulled = false
+    points.renderOrder = 1
     this.scene.add(points)
+
+    if (quality !== 'low') {
+      this.shadowMat = new ShaderMaterial({
+        vertexShader: shadowVertex,
+        fragmentShader: shadowFragment,
+        transparent: true,
+        depthWrite: false,
+        uniforms: this.pointsMat.uniforms,
+      })
+      const shadow = new Points(geo, this.shadowMat)
+      shadow.frustumCulled = false
+      this.scene.add(shadow)
+    }
 
     if (!this.o.calm) this.addDust(quality === 'low' ? 160 : 520)
 
     this.resize()
     this.running = true
+    document.addEventListener('visibilitychange', this.onVisibility)
     this.last = performance.now()
-    this.raf = requestAnimationFrame(this.frame)
+    if (!document.hidden) this.raf = requestAnimationFrame(this.frame)
     return true
   }
 
@@ -245,7 +283,7 @@ export class ParticleScene {
       uniforms: {
         uTime: { value: 0 },
         uPixelRatio: { value: this.renderer.getPixelRatio() },
-        uBounds: { value: new Vector3(18, 11, 7) },
+        uLight: { value: this.light },
         uColor: { value: new Color('#566173') },
       },
     })
@@ -255,7 +293,7 @@ export class ParticleScene {
   }
 
   resize = () => {
-    if (!this.renderer) return
+    if (!this.pointsMat || this.disposed) return
     const c = this.canvas
     const w = c.clientWidth || window.innerWidth
     const h = c.clientHeight || window.innerHeight
@@ -277,10 +315,16 @@ export class ParticleScene {
   }
 
   setPointer(clientX: number, clientY: number, active: boolean) {
+    const wasActive = this.mouseTarget > 0
     this.mouseTarget = active ? 1 : 0
     if (!active) return
-    this.pointerNdc.set((clientX / this.width) * 2 - 1, -((clientY / this.height) * 2 - 1))
+    const rect = this.canvas.getBoundingClientRect()
+    this.pointerNdc.set(((clientX - rect.left) / this.width) * 2 - 1, -(((clientY - rect.top) / this.height) * 2 - 1))
     this.mouse.set((this.pointerNdc.x * this.viewW) / 2, (this.pointerNdc.y * VIS_H) / 2, 0)
+    if (!wasActive) {
+      this.mousePrevious.copy(this.mouse)
+      this.mouseVelocity.set(0, 0, 0)
+    }
   }
 
   /** Cursor is snapped on the name: the cloud reacts more strongly. */
@@ -297,13 +341,27 @@ export class ParticleScene {
     return { x: cx - (w * this.ppu) / 2, y: cy - (h * this.ppu) / 2, w: w * this.ppu, h: h * this.ppu }
   }
 
+  private onVisibility = () => {
+    cancelAnimationFrame(this.raf)
+    this.setPointer(0, 0, false)
+    this.mouseOn = 0
+    this.mouseVelocity.set(0, 0, 0)
+    this.mousePrevious.copy(this.mouse)
+    this.accumulator = 0
+    this.frameTimes.length = 0
+    if (!document.hidden && !this.disposed) {
+      this.last = performance.now()
+      this.raf = requestAnimationFrame(this.frame)
+    }
+  }
+
   private frame = (now: number) => {
-    if (this.disposed) return
+    if (this.disposed || document.hidden) return
     this.raf = requestAnimationFrame(this.frame)
     const raw = (now - this.last) / 1000
     this.last = now
-    const dt = Math.min(raw, 1 / 30)
-    this.t += dt
+    const dt = Math.max(0, Math.min(raw, STEP * 3))
+    this.accumulator += dt
 
     // frame-time watchdog
     this.frameTimes.push(raw * 1000)
@@ -337,23 +395,42 @@ export class ParticleScene {
     this.pointsMat.uniforms.uSizeScale!.value = this.sizeBase * lerp(1, 0.9, e)
     this.pointsMat.uniforms.uKeep!.value = lerp(1, 0.75, e)
 
-    this.mouseOn += (this.mouseTarget - this.mouseOn) * Math.min(1, dt * 8)
-    this.boost += (this.boostTarget - this.boost) * Math.min(1, dt * 6)
+    this.mouseOn += (this.mouseTarget - this.mouseOn) * (1 - Math.exp(-dt * 8))
+    this.boost += (this.boostTarget - this.boost) * (1 - Math.exp(-dt * 6))
 
     const u = this.velVar.material.uniforms
-    u.uTime!.value = this.t
-    u.uDt!.value = dt
+    u.uDt!.value = STEP
     u.uAssemble!.value = assemble
+    u.uSpring!.value = lerp(24, 50, e)
+    u.uDamp!.value = lerp(this.o.calm ? 9 : 5.8, 13, e)
     u.uMouseOn!.value = this.mouseOn
-    u.uRadius!.value = lerp(0.75, 0.95, this.boost) * (this.o.coarse ? 1.2 : 1)
-    u.uStrength!.value = lerp(10, 15, this.boost)
+    u.uRadius!.value = lerp(0.7, 1.05, this.boost) * (this.o.coarse ? 1.2 : 1) * lerp(1, 0.6, e)
+    u.uStrength!.value = lerp(18, 26, this.boost) * (this.o.calm ? 0.4 : 1)
     u.uScale!.value = this.fit * this.scale
-    this.posVar.material.uniforms.uDt!.value = dt
-    // ambient drift eases off while the sheet is open so the name stays legible above it
-    u.uNoise!.value = this.o.calm ? 0 : lerp(0.12, 0.05, e)
+    this.posVar.material.uniforms.uDt!.value = STEP
+    u.uNoise!.value = this.o.calm ? 0 : Math.min(0.095, this.fit * 0.012) * lerp(1, 0.18, e)
 
-    this.gpu.compute()
+    if (this.accumulator >= STEP) {
+      this.mouseDelta.copy(this.mouse).sub(this.mousePrevious).divideScalar(this.accumulator).clampLength(0, 18)
+      this.mouseVelocity.lerp(this.mouseDelta, 1 - Math.exp(-this.accumulator * 14))
+      while (this.accumulator >= STEP) {
+        this.t += STEP
+        u.uTime!.value = this.t
+        this.gpu.compute()
+        this.accumulator -= STEP
+        this.mousePrevious.copy(this.mouse)
+      }
+    }
+
     this.pointsMat.uniforms.tPos!.value = this.gpu.getCurrentRenderTarget(this.posVar).texture
+    this.pointsMat.uniforms.tPrevious!.value = this.gpu.getAlternateRenderTarget(this.posVar).texture
+    this.pointsMat.uniforms.uBlend!.value = this.accumulator / STEP
+    const lightTime = this.o.calm ? 0 : this.t * 0.24
+    this.light.set(
+      Math.sin(lightTime) * this.fit * 0.65 - this.fit * 0.3,
+      this.center.y + 3.5 + Math.cos(lightTime * 0.7) * 0.6,
+      4.5 + Math.sin(lightTime * 0.8) * 0.8,
+    )
     if (this.dustMat) this.dustMat.uniforms.uTime!.value = this.t
     this.renderer.render(this.scene, this.camera)
   }
@@ -362,12 +439,17 @@ export class ParticleScene {
     this.disposed = true
     this.running = false
     cancelAnimationFrame(this.raf)
+    document.removeEventListener('visibilitychange', this.onVisibility)
+    const geometries = new Set<BufferGeometry>()
     this.scene.traverse((o) => {
       const m = o as Points
-      m.geometry?.dispose()
+      if (m.geometry) geometries.add(m.geometry)
     })
+    geometries.forEach((geometry) => geometry.dispose())
     this.pointsMat?.dispose()
+    this.shadowMat?.dispose()
     this.dustMat?.dispose()
+    this.targetTexture?.dispose()
     this.gpu?.dispose()
     this.renderer?.dispose()
     this.renderer?.forceContextLoss()

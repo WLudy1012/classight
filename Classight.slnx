@@ -1,6 +1,8 @@
 <Solution>
   <Project Path="backend/src/Classight.Api/Classight.Api.csproj" />
+  <Project Path="backend/src/Classight.Blog/Classight.Blog.csproj" />
   <Project Path="backend/src/Classight.Captcha/Classight.Captcha.csproj" />
+  <Project Path="backend/src/Classight.Chat/Classight.Chat.csproj" />
   <Project Path="backend/src/Classight.Class/Classight.Class.csproj" />
   <Project Path="backend/src/Classight.Content/Classight.Content.csproj" />
   <Project Path="backend/src/Classight.Contracts/Classight.Contracts.csproj" />

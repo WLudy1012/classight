@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="../Classight.Platform/Classight.Platform.csproj" />
+  </ItemGroup>
+</Project>

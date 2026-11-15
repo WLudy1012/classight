@@ -7,10 +7,12 @@ import { speechApi, type SpeechEntry, type SpeechSessionDetail, type SpeechSessi
 import { can, useAuth } from '@/features/auth/store'
 import { useDocumentTitle } from '@/shared/hooks'
 import { errorMessage, fieldErrors, formatDate } from '@/shared/i18n'
-import { Avatar, Badge, Button, ConfirmDialog, Dialog, Field, Icon, Input, Skeleton, StateView, toast } from '@/shared/ui'
+import { Avatar, Badge, Button, ConfirmDialog, Dialog, Field, Icon, Input, Select, Skeleton, StateView, toast } from '@/shared/ui'
 import { CoursewarePanel } from './CoursewarePanel'
 import { sessionKey, StatusBadge } from './shared'
 import { SessionEditor } from './SessionEditor'
+import { AssignedTeams } from './AssignedTeams'
+import { DisplayControls, EntryReviewControls } from './ModerationControls'
 
 export function SessionDetail({ sessionId }: { sessionId: string }) {
   const { t, i18n } = useTranslation()
@@ -23,7 +25,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
   const manage = can(user, 'speech.manage')
 
   const q = useQuery({
-    queryKey: sessionKey(sessionId),
+    queryKey: [...sessionKey(sessionId), user?.id, manage],
     queryFn: ({ signal }) => speechApi.session(sessionId, signal),
     // polling instead of a socket: cheap, and paused while the tab is hidden
     refetchInterval: () => (document.hidden ? false : 5000),
@@ -37,6 +39,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
   const [editing, setEditing] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [targetStatus, setTargetStatus] = useState<SpeechSessionStatus | null>(null)
+  const [reviewFilter, setReviewFilter] = useState('all')
   const changeStatus = useMutation({ mutationFn: (status: SpeechSessionStatus) => speechApi.setStatus(sessionId, status), onSuccess: () => { setTargetStatus(null); void qc.invalidateQueries({ queryKey: ['speech'] }) }, onError: (error) => toast.error(errorMessage(error)) })
   const deleteSession = useMutation({ mutationFn: () => speechApi.deleteSession(sessionId), onSuccess: () => { void qc.invalidateQueries({ queryKey: ['speech'] }); navigate(MEETINGS_PATH, { replace: true }) }, onError: (error) => toast.error(errorMessage(error)) })
   const control = useMutation({
@@ -78,7 +81,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
   const waiting = s.entries.filter((e) => e.status === 'queued')
   const mine = s.entries.find((e) => e.mine)
   const open = s.status === 'open' && s.submissionsOpen
-  const myTeam = s.teams.find((x) => x.mine)
+  const shown = manage && reviewFilter !== 'all' ? s.entries.filter((entry) => entry.reviewStatus === reviewFilter) : s.entries
   const statusActions: { status: SpeechSessionStatus; label: string }[] = s.status === 'draft' ? [{ status: 'open', label: text('开放报名', 'Open registration') }] : s.status === 'open' ? [{ status: 'running', label: text('开始班会', 'Start meeting') }] : s.status === 'running' ? [{ status: 'closed', label: text('结束班会', 'End meeting') }, { status: 'open', label: text('恢复报名', 'Resume registration') }] : [{ status: 'open', label: text('重新开放报名', 'Reopen registration') }]
   const moveEntry = (id: string, offset: number) => {
     const order = waiting.map((entry) => entry.id)
@@ -95,7 +98,6 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
         <Link to={MEETINGS_PATH} className="btn btn-ghost btn-sm">
           <Icon name="arrowLeft" /> {t('queue.back')}
         </Link>
-        <span className="muted small">{t('queue.pollHint')}</span>
       </div>
 
       <header className="qhead">
@@ -116,31 +118,23 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           {!open && !mine && canJoin && <span className="muted small">{t('queue.closedNote')}</span>}
         </div>
       </header>
-      {manage && <div className="meeting-management"><div className="row-gap">{statusActions.map((action) => <Button key={action.status} size="sm" variant={action.status === 'closed' ? 'danger' : 'secondary'} disabled={changeStatus.isPending} onClick={() => setTargetStatus(action.status)}>{action.label}</Button>)}<Button size="sm" variant="ghost" icon="edit" onClick={() => setEditing(true)}>{text('编辑场次', 'Edit meeting')}</Button><Button size="sm" variant="ghost" icon="trash" onClick={() => setDeleting(true)}>{text('删除场次', 'Delete meeting')}</Button></div><span className="muted small">{text('管理员可调整顺序并控制发言进度。', 'Administrators can reorder entries and control presentations.')}</span></div>}
-
-      <section className="qnow" aria-label={t('queue.now')} data-live={!!speaking || undefined}>
-        <span className="qnow__label">{speaking ? t('queue.now') : t('queue.next')}</span>
-        {speaking ? (
-          <EntryHead entry={speaking} />
-        ) : waiting[0] ? (
-          <EntryHead entry={waiting[0]} />
-        ) : (
-          <span className="muted">{t('queue.nowNone')}</span>
-        )}
-      </section>
+      {manage && <div className="meeting-management"><div className="row-gap">{statusActions.map((action) => <Button key={action.status} size="sm" variant={action.status === 'closed' ? 'danger' : 'secondary'} disabled={changeStatus.isPending} onClick={() => setTargetStatus(action.status)}>{action.label}</Button>)}<Button size="sm" variant="ghost" icon="edit" onClick={() => setEditing(true)}>{text('编辑场次', 'Edit meeting')}</Button><Button size="sm" variant="ghost" icon="trash" onClick={() => setDeleting(true)}>{text('删除场次', 'Delete meeting')}</Button></div></div>}
 
       <div className="qgrid">
         <section aria-labelledby="q-order" className="qgrid__main">
-          <h2 id="q-order" className="page__h">
-            {t('queue.queueTitle')}
-          </h2>
-          {s.entries.length === 0 ? (
-            <StateView icon="mic" title={t('queue.nobodyYet')} body={t('queue.nobodyYetBody')} />
+          <div className="row-between meeting-review-heading">
+            <h2 id="q-order" className="page__h">{t(manage ? 'queue.review.title' : 'queue.review.mySubmission')}</h2>
+            {manage && <Select aria-label={t('queue.review.filter')} value={reviewFilter} onChange={(event) => setReviewFilter(event.target.value)}>
+              {['all', 'pending', 'returned', 'approved'].map((filter) => <option key={filter} value={filter}>{t(`queue.review.${filter}`)}</option>)}
+            </Select>}
+          </div>
+          {shown.length === 0 ? (
+            <StateView icon="mic" title={t('queue.review.empty')} />
           ) : (
             <ol className="qlistx">
-              {s.entries.map((e) => (
-                <li key={e.id} className="qitem" data-status={e.status} data-mine={e.mine || undefined}>
-                  <span className="qitem__pos num">{e.position}</span>
+              {shown.map((e) => (
+                <li key={e.id} className="qitem" data-status={e.status} data-mine={e.mine || undefined} data-private={!manage || undefined}>
+                  {manage && <span className="qitem__pos num">{e.position}</span>}
                   <div className="qitem__body">
                     <EntryHead entry={e} compact />
                     <div className="qitem__tools">
@@ -148,20 +142,23 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
                       {e.mine && <Badge tone="solid">{t('queue.mine')}</Badge>}
                       {manage && <>
                         {e.status === 'queued' && <><Button size="sm" variant="ghost" icon="arrowUp" iconOnly aria-label={text(`上移 ${e.topic}`, `Move ${e.topic} up`)} disabled={waiting[0]?.id === e.id || control.isPending} onClick={() => moveEntry(e.id, -1)} /><Button size="sm" variant="ghost" icon="arrowDown" iconOnly aria-label={text(`下移 ${e.topic}`, `Move ${e.topic} down`)} disabled={waiting.at(-1)?.id === e.id || control.isPending} onClick={() => moveEntry(e.id, 1)} /></>}
-                        {(e.status === 'queued' || e.status === 'skipped') && (s.status === 'open' || s.status === 'running') && <Button size="sm" variant="secondary" icon="play" disabled={control.isPending || !!speaking} onClick={() => control.mutate({ action: 'start', entryId: e.id })}>{text('开始发言', 'Start presentation')}</Button>}
+                        {e.reviewStatus === 'approved' && (e.status === 'queued' || e.status === 'skipped') && (s.status === 'open' || s.status === 'running') && <Button size="sm" variant="secondary" icon="play" disabled={control.isPending || !!speaking} onClick={() => control.mutate({ action: 'start', entryId: e.id })}>{text('开始发言', 'Start presentation')}</Button>}
                         {e.status === 'speaking' && <Button size="sm" variant="secondary" icon="check" disabled={control.isPending} onClick={() => control.mutate({ action: 'finish', entryId: e.id })}>{text('完成发言', 'Finish')}</Button>}
                         {(e.status === 'queued' || e.status === 'speaking') && s.status !== 'closed' && <Button size="sm" variant="ghost" disabled={control.isPending} onClick={() => control.mutate({ action: 'skip', entryId: e.id })}>{text('跳过', 'Skip')}</Button>}
                       </>}
-                      {(e.mine || manage) && (e.status === 'queued' || manage) && (
+                      {(manage || (open && e.owner.id === user?.id && canJoin)) && (e.status === 'queued' || manage) && (
                         <Button size="sm" variant="ghost" onClick={() => setDropping(e)}>
                           {t('queue.cancelEntry')}
                         </Button>
                       )}
                     </div>
+                    <EntryReviewControls entry={e} manage={manage} canEdit={e.status === 'queued' && (manage || (open && canJoin && e.owner.id === user?.id))} refresh={refresh} />
+                    {manage && <DisplayControls entry={e} refresh={refresh} />}
                     {(e.mine || manage || e.courseware) && (
                       <CoursewarePanel
                         entry={e}
-                        canEdit={(e.mine || manage || !!(myTeam && e.team?.id === myTeam.id)) && (canJoin || manage) && (e.status === 'queued' || e.status === 'speaking' || manage)}
+                        manage={manage}
+                        canEdit={e.status === 'queued' && (manage || (open && canJoin && e.mine))}
                         caps={caps.data}
                         invalidate={refresh}
                       />
@@ -177,7 +174,7 @@ export function SessionDetail({ sessionId }: { sessionId: string }) {
           <h2 id="q-teams" className="page__h">
             {t('queue.teams')}
           </h2>
-          <TeamsPanel session={s} canJoin={canJoin && open} refresh={refresh} />
+          {manage ? <AssignedTeams session={s} refresh={refresh} /> : <TeamsPanel session={s} canJoin={canJoin && open} refresh={refresh} />}
         </aside>
       </div>
 
@@ -266,7 +263,7 @@ function TeamsPanel({ session, canJoin, refresh }: { session: SpeechSessionDetai
                 <Avatar name={m.displayName} src={m.avatarUrl} size={26} />
                 <span>{m.displayName}</span>
                 {m.isLeader && <Badge>{t('queue.leader')}</Badge>}
-                {(mine.leaderId === user?.id || manage || m.userId === user?.id) && !m.isLeader && (
+                {canJoin && !mine.assigned && (mine.leaderId === user?.id || manage || m.userId === user?.id) && !m.isLeader && (
                   <Button size="sm" variant="ghost" onClick={() => remove.mutate({ team: mine.id, userId: m.userId })}>
                     {m.userId === user?.id ? t('queue.leave') : t('queue.kick')}
                   </Button>
@@ -282,7 +279,7 @@ function TeamsPanel({ session, canJoin, refresh }: { session: SpeechSessionDetai
               </Button>
             </div>
           )}
-          {(mine.leaderId === user?.id || manage) && (
+          {canJoin && !mine.assigned && (mine.leaderId === user?.id || manage) && (
             <Button size="sm" variant="danger" onClick={() => setDisband(mine)}>
               {t('queue.disband')}
             </Button>
@@ -354,11 +351,10 @@ function SignUpDialog({ session, onClose, refresh }: { session: SpeechSessionDet
   const user = useAuth((s) => s.user)
   const myTeam = session.teams.find((x) => x.mine && x.leaderId === user?.id && !x.entryId)
   const [topic, setTopic] = useState('')
-  const [asTeam, setAsTeam] = useState(!!myTeam)
   const [fields, setFields] = useState<Record<string, string>>({})
   const [error, setError] = useState('')
   const m = useMutation({
-    mutationFn: () => speechApi.signUp(session.id, { topic: topic.trim(), teamId: asTeam ? myTeam?.id : undefined }),
+    mutationFn: () => speechApi.signUp(session.id, { topic: topic.trim(), teamId: myTeam?.id }),
     onSuccess: () => {
       toast.success(t('queue.signUpDone'))
       refresh()
@@ -404,20 +400,7 @@ function SignUpDialog({ session, onClose, refresh }: { session: SpeechSessionDet
         <Field label={t('queue.topic')} hint={t('queue.topicHint')} error={fields.topic}>
           <Input autoFocus value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={200} invalid={!!fields.topic} />
         </Field>
-        {myTeam && (
-          <fieldset className="choice">
-            <label className="check">
-              <input type="radio" name="who" checked={!asTeam} onChange={() => setAsTeam(false)} />
-              <span>{t('queue.asSolo')}</span>
-            </label>
-            <label className="check">
-              <input type="radio" name="who" checked={asTeam} onChange={() => setAsTeam(true)} />
-              <span>
-                {t('queue.asTeam')}：{myTeam.name}
-              </span>
-            </label>
-          </fieldset>
-        )}
+        {myTeam && <p className="muted small">{t('queue.groups.submitAs', { name: myTeam.name })}</p>}
       </form>
     </Dialog>
   )
