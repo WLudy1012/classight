@@ -65,6 +65,7 @@ Copy-Item -LiteralPath $NextExecutable -Destination $pending
     ConvertTo-Json | Set-Content -LiteralPath $manifest -Encoding utf8
 & $helperExecutable --apply-update $root ([IO.Path]::GetFileName($installed)) 0 0
 if ($LASTEXITCODE -ne 1 -or (Get-FileHash -LiteralPath $installed).Hash -ne $oldHash -or (Test-Path -LiteralPath $manifest)) { throw 'A corrupt update was not rejected safely.' }
+$global:LASTEXITCODE = 0
 Copy-Item -LiteralPath $NextExecutable -Destination $installed -Force
 $listener.Start()
 $port = $listener.LocalEndpoint.Port

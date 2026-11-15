@@ -57,6 +57,8 @@ jobs:
           $expected = (Get-Content "$baseline.sha256").Split(' ')[0]
           if ((Get-FileHash $baseline).Hash -ne $expected) { throw 'Update baseline checksum mismatch.' }
           ./scripts/Test-WindowsUpdate.ps1 -CurrentExecutable $baseline -NextExecutable "dist/releases/$env:RELEASE_TAG/ClassightDaemon-win-x64.exe"
+          if (-not $?) { throw 'Windows update verification failed.' }
+          $global:LASTEXITCODE = 0
       - uses: actions/upload-artifact@v4
         with:
           name: classight-release-assets
