@@ -5,7 +5,7 @@
     <ProjectReference Include="../../src/Classight.Speech/Classight.Speech.csproj" />
     <ProjectReference Include="../Classight.PluginFixture/Classight.PluginFixture.csproj" ReferenceOutputAssembly="false" />
     <ProjectReference Include="../Classight.PluginFixture.V2/Classight.PluginFixture.V2.csproj" ReferenceOutputAssembly="false" />
-    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0-rc.2.26504.105" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="11.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />

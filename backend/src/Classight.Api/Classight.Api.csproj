@@ -14,8 +14,8 @@
     <ProjectReference Include="../Classight.Blog/Classight.Blog.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
     <ProjectReference Include="../Classight.Chat/Classight.Chat.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
     <ProjectReference Include="../Classight.MemberIdentity/Classight.MemberIdentity.csproj" ReferenceOutputAssembly="false" GlobalPropertiesToRemove="RuntimeIdentifier;SelfContained;PublishSingleFile" />
-    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0-rc.2.26504.105" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0-rc.2.26504.105" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="11.0.0" />
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="11.0.0" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="9.0.11"><PrivateAssets>all</PrivateAssets></PackageReference>
   </ItemGroup>

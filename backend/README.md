@@ -1,6 +1,6 @@
 # Classight 后端
 
-后端按 `docs/api-contract.md` 的 `/api/v1` 契约实现，运行时为 .NET 11 RC2。项目按模块拆分：
+后端按 `docs/api-contract.md` 的 `/api/v1` 契约实现，运行时为 .NET 11 正式版。项目按模块拆分：
 
 - `Classight.SharedKernel`：模块接口、权限、当前用户、统一输入校验。
 - `Classight.Platform`：EF Core 数据模型、缓存、限流、事件审计、媒体存储。

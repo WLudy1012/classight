@@ -5,9 +5,11 @@
 | 平台 | 下载文件 | 启动方式 |
 | --- | --- | --- |
 | Windows x64 | `Classight-Windows-x64.zip` 或 `ClassightDaemon-win-x64.exe` | ZIP 解压后运行 `Start-Classight.cmd`；单 EXE 可直接启动。两者都包含 .NET 运行时。 |
-| Linux x64 | `ClassightDaemon-linux-x64` | 安装 .NET 11 RC2 ASP.NET Core 运行时，执行 `chmod +x ClassightDaemon-linux-x64`，再启动该文件。 |
+| Linux x64 | `ClassightDaemon-linux-x64` | 安装 ASP.NET Core 11.0.0 或更高的 11.0 正式版运行时，执行 `chmod +x ClassightDaemon-linux-x64`，再启动该文件。 |
 
 首次启动后访问 [http://localhost:5080](http://localhost:5080)，按安装向导创建管理员并连接数据库。服务从程序所在目录读取 `config/`、`data/` 和 `plugin/`。
+
+从 v1.0.x 升级的 Linux 用户需要先安装 [ASP.NET Core 11 正式版运行时](https://dotnet.microsoft.com/en-us/download/dotnet/11.0)，再重启至新版。RC2 无法运行 v1.1.0。Windows 自包含包已包含所需运行时。
 
 ## 更新如何生效
 
