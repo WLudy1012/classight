@@ -12,6 +12,7 @@ import { overviewKey } from '@/features/class-info/ClassInfoView'
 import { Cursor, NAME_TARGET_ID, bracketRect } from './cursor/Cursor'
 import { registerMagnet, type ScreenRect } from './cursor/magnet'
 import { HomeDock } from './HomeDock'
+import policeFilingIcon from './police-filing.png'
 import { InfoSheet } from './InfoSheet'
 import { detectQuality, downgrade } from './quality'
 import { ParticleScene, SHRINK } from './scene/ParticleScene'
@@ -291,6 +292,9 @@ export default function HomePage() {
 
   const hasBracket = !coarse
   const ready = !!site
+  const icpFiling = site?.icpFilingNumber?.trim()
+  const policeFiling = site?.policeFilingNumber?.trim()
+  const policeCode = policeFiling?.match(/[0-9]{14}/)?.[0]
 
   return (
     <div
@@ -301,6 +305,7 @@ export default function HomePage() {
       data-bracket={hasBracket}
       data-static={staticMode}
       data-ready={ready}
+      data-filing={!!(icpFiling || policeCode)}
     >
       {!staticMode && <div ref={canvasRef} className="home__canvas" aria-hidden="true" />}
       <h1 className="sr-only">{className}</h1>
@@ -366,6 +371,18 @@ export default function HomePage() {
         {hint}
       </p>
       {staticMode && ready && sceneFailed && <p className="home__note">{t('home.fallbackNote')}</p>}
+
+      {(icpFiling || policeCode) && (
+        <footer className="home__filing">
+          {icpFiling && <a href="https://beian.miit.gov.cn/" target="_blank" rel="noreferrer">{icpFiling}</a>}
+          {policeCode && (
+            <a href={`https://beian.mps.gov.cn/#/query/webSearch?code=${policeCode}`} target="_blank" rel="noreferrer">
+              <img src={policeFilingIcon} alt="" width={16} height={16} />
+              {policeFiling === policeCode ? `公网安备${policeCode}号` : policeFiling}
+            </a>
+          )}
+        </footer>
+      )}
 
       <InfoSheet ref={sheetRef} open={zone === 'info'} onClose={driver.close} scrollerRef={scrollerRef} />
 

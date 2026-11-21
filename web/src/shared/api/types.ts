@@ -52,6 +52,8 @@ export interface SitePublic {
   className: string
   classNameEn?: string
   slogan: string
+  icpFilingNumber?: string | null
+  policeFilingNumber?: string | null
   appearance: {
     particleQualityDefault: QualityTier
     palette: { particle: string; accent: string }
@@ -213,6 +215,8 @@ export interface SiteSettings {
   className: string
   classNameEn: string
   slogan: string
+  icpFilingNumber?: string | null
+  policeFilingNumber?: string | null
 }
 export interface AppearanceSettings {
   particleQualityDefault: QualityTier

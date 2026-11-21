@@ -56,7 +56,12 @@ public sealed class SettingsStore(AppDbContext db, IEventBus events) : ISettings
     }
     private static SiteSettings Validate(SiteSettings value)
     {
-        value.ClassName = Input.Required(value.ClassName, "className", 100); value.ClassNameEn = Input.Optional(value.ClassNameEn, "classNameEn", 100); value.Slogan = Input.Required(value.Slogan, "slogan", 500); return value;
+        value.ClassName = Input.Required(value.ClassName, "className", 100); value.ClassNameEn = Input.Optional(value.ClassNameEn, "classNameEn", 100); value.Slogan = Input.Required(value.Slogan, "slogan", 500);
+        value.IcpFilingNumber = Input.Optional(value.IcpFilingNumber, "icpFilingNumber", 64);
+        value.PoliceFilingNumber = Input.Optional(value.PoliceFilingNumber, "policeFilingNumber", 64);
+        if (!string.IsNullOrEmpty(value.PoliceFilingNumber) && !System.Text.RegularExpressions.Regex.IsMatch(value.PoliceFilingNumber, @"\A(?:[\p{L} ]*公网安备\s*)?[0-9]{14}(?:\s*号)?\z"))
+            throw ApiException.Validation("policeFilingNumber", "请输入完整的公安备案号或 14 位数字编号");
+        return value;
     }
     private static AppearanceSettings Validate(AppearanceSettings value)
     {
@@ -125,7 +130,7 @@ public sealed class SiteAdminModule : IModule
         endpoints.MapGet("/api/v1/site/public", async (ISiteSettingsReader settings, IConfiguration config, ICacheService cache, CancellationToken ct) => await cache.Get("site:public", async token =>
         {
             var site = await settings.Get<SiteSettings>("site", token); var appearance = await settings.Get<AppearanceSettings>("appearance", token); var security = await settings.Get<SecuritySettings>("security", token);
-            return new { site.ClassName, site.ClassNameEn, site.Slogan, appearance = new { appearance.ParticleQualityDefault, palette = new { particle = appearance.ParticleColor, accent = appearance.AccentColor }, appearance.FontSubsetUrl }, registrationMode = security.RegistrationMode, apiVersion = "v1", features = new { mongo = config.GetValue<bool>("Mongo:Enabled"), redis = config.GetValue<bool>("Redis:Enabled") } };
+            return new { site.ClassName, site.ClassNameEn, site.Slogan, site.IcpFilingNumber, site.PoliceFilingNumber, appearance = new { appearance.ParticleQualityDefault, palette = new { particle = appearance.ParticleColor, accent = appearance.AccentColor }, appearance.FontSubsetUrl }, registrationMode = security.RegistrationMode, apiVersion = "v1", features = new { mongo = config.GetValue<bool>("Mongo:Enabled"), redis = config.GetValue<bool>("Redis:Enabled") } };
         }, ct)).WithTags("Site");
         endpoints.MapGet("/health/live", () => new { status = "healthy" }).WithTags("Health");
         endpoints.MapGet("/health/ready", async (DependencyStatus status, CancellationToken ct) =>

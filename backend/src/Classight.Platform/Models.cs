@@ -130,6 +130,8 @@ public sealed class SiteSettings
     public string ClassName { get; set; } = "Classight";
     public string? ClassNameEn { get; set; }
     public string Slogan { get; set; } = "一起记录我们的时光";
+    public string? IcpFilingNumber { get; set; }
+    public string? PoliceFilingNumber { get; set; }
 }
 public sealed class AppearanceSettings
 {

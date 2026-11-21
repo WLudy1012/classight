@@ -33,7 +33,7 @@
 ## D. 公共与站点（匿名可访问）
 | 方法 路径 | 说明 | 请求 | 响应 | 里程碑 |
 |---|---|---|---|---|
-| GET `/site/public` | 站点公开信息，主页启动第一个请求 | — | `className`、`classNameEn?`、`slogan`、`appearance{particleQualityDefault, palette, fontSubsetUrl}`、`registrationMode(invite\|closed)`、`apiVersion`、`features{mongo,redis}`(仅布尔，不暴露细节) | M1/M2 |
+| GET `/site/public` | 站点公开信息，主页启动第一个请求 | — | `className`、`classNameEn?`、`slogan`、`icpFilingNumber?`、`policeFilingNumber?`、`appearance{particleQualityDefault, palette, fontSubsetUrl}`、`registrationMode(invite\|closed)`、`apiVersion`、`features{mongo,redis}`(仅布尔，不暴露细节) | M1/M2 |
 | GET `/health/live` `/health/ready` | 存活/就绪（不带 `/api/v1`） | — | 状态与依赖项 | M1 |
 
 ## E. 认证与账号（`/auth`）

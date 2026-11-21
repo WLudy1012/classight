@@ -272,6 +272,8 @@ route('GET', '/site/public', (): SitePublic => {
     className: s.site.className,
     classNameEn: s.site.classNameEn,
     slogan: s.site.slogan,
+    icpFilingNumber: s.site.icpFilingNumber,
+    policeFilingNumber: s.site.policeFilingNumber,
     appearance: {
       particleQualityDefault: s.appearance.particleQualityDefault,
       palette: { particle: s.appearance.particleColor, accent: s.appearance.accentColor },

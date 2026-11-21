@@ -43,18 +43,32 @@ function GroupForm<K extends SettingsGroupKey>({ group, readOnly }: { group: K; 
           {error && <div className="form-error" role="alert">{error}</div>}
           <fieldset disabled={readOnly || save.isPending} style={{ display: 'contents' }}>
             {group === 'site' && (
-              <section className="admin-form__section">
-                <h3>{en ? 'Site identity' : '站点身份'}</h3>
-                <div className="grid-2">
-                  <Field label={t('admin.settings.className')} hint={t('admin.settings.classNameNote')} error={fields.className}>
-                    <Input value={String(val.className ?? '')} onChange={str('className')} invalid={!!fields.className} />
-                  </Field>
-                  <Field label={t('admin.settings.classNameEn')}>
-                    <Input value={String(val.classNameEn ?? '')} onChange={str('classNameEn')} />
-                  </Field>
-                </div>
-                <Field label={t('admin.settings.slogan')}><Input value={String(val.slogan ?? '')} onChange={str('slogan')} /></Field>
-              </section>
+              <>
+                <section className="admin-form__section">
+                  <h3>{en ? 'Site identity' : '站点身份'}</h3>
+                  <div className="grid-2">
+                    <Field label={t('admin.settings.className')} hint={t('admin.settings.classNameNote')} error={fields.className}>
+                      <Input value={String(val.className ?? '')} onChange={str('className')} invalid={!!fields.className} />
+                    </Field>
+                    <Field label={t('admin.settings.classNameEn')}>
+                      <Input value={String(val.classNameEn ?? '')} onChange={str('classNameEn')} />
+                    </Field>
+                  </div>
+                  <Field label={t('admin.settings.slogan')}><Input value={String(val.slogan ?? '')} onChange={str('slogan')} /></Field>
+                </section>
+                <section className="admin-form__section">
+                  <h3>{en ? 'Website filing' : '网站备案'}</h3>
+                  <p className="admin-form__note">{en ? 'Enter the issued numbers to display them in the homepage footer. Leave either field blank to hide it.' : '填写已核发的备案号，保存后显示在首页底部。留空可隐藏对应条目。'}</p>
+                  <div className="grid-2">
+                    <Field label={en ? 'ICP filing number' : 'ICP备案号'} error={fields.icpFilingNumber}>
+                      <Input maxLength={64} value={String(val.icpFilingNumber ?? '')} onChange={str('icpFilingNumber')} invalid={!!fields.icpFilingNumber} />
+                    </Field>
+                    <Field label={en ? 'Public security filing number' : '公安备案号'} error={fields.policeFilingNumber}>
+                      <Input maxLength={64} value={String(val.policeFilingNumber ?? '')} onChange={str('policeFilingNumber')} invalid={!!fields.policeFilingNumber} />
+                    </Field>
+                  </div>
+                </section>
+              </>
             )}
             {group === 'appearance' && (
               <>

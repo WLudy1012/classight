@@ -120,6 +120,27 @@ public sealed class ApiTests
         await AssertProblem(await client.GetAsync($"/api/v1/class/members/{id}"), HttpStatusCode.NotFound, "resource.not_found");
     }
     [Fact]
+    public async Task Site_filing_numbers_are_public_and_can_be_cleared_independently()
+    {
+        await using var app = new ApiFactory(); using var admin = app.Client(); using var visitor = app.Client();
+        Bearer(admin, (await Login(admin)).Token);
+        const string settings = "/api/v1/admin/settings/site";
+        const string publicSite = "/api/v1/site/public";
+        var current = await Json(await admin.GetAsync(settings));
+        Assert.Null((await Json(await visitor.GetAsync(publicSite))).GetProperty("policeFilingNumber").GetString());
+        var version = current.GetProperty("version").GetInt64();
+        await AssertProblem(await admin.PutAsJsonAsync(settings, new { version, policeFilingNumber = "123" }), HttpStatusCode.BadRequest, "validation.failed");
+        var saved = await Json(await admin.PutAsJsonAsync(settings, new { version, icpFilingNumber = " 京ICP备12345678号-1 ", policeFilingNumber = "京公网安备11010102000000号" }));
+        var site = await Json(await visitor.GetAsync(publicSite));
+        Assert.Equal("京ICP备12345678号-1", site.GetProperty("icpFilingNumber").GetString());
+        Assert.Equal("京公网安备11010102000000号", site.GetProperty("policeFilingNumber").GetString());
+        await Json(await admin.PutAsJsonAsync(settings, new { version = saved.GetProperty("version").GetInt64(), icpFilingNumber = "" }));
+        site = await Json(await visitor.GetAsync(publicSite));
+        Assert.True(string.IsNullOrEmpty(site.GetProperty("icpFilingNumber").GetString()));
+        Assert.Equal("京公网安备11010102000000号", site.GetProperty("policeFilingNumber").GetString());
+    }
+
+    [Fact]
     public async Task Media_private_public_and_invalid_type()
     {
         await using var app = new ApiFactory(); using var client = app.Client(); var login = await Login(client); Bearer(client, login.Token);
